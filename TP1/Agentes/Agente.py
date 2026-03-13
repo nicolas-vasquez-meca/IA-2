@@ -23,7 +23,7 @@ class Nodo:
 
 
 class Agente:
-
+    # Contructor
     def __init__(self, mapa: Mapa, Render: RenderizadorPygame):
         self.x:int
         self.y: int

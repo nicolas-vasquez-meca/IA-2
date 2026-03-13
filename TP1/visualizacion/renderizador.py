@@ -10,21 +10,25 @@ from entorno.mapa import Mapa
 
 
 class RenderizadorPygame:
-    """
-    Dedicado a la representación gráfica del entorno.
-    Mantiene un estado visual independiente para permitir la modificación de colores
-    en tiempo de ejecución (ej. visualización de algoritmos de búsqueda).
-    """
-
-    # Definición de paleta de colores (Formato RGB)
-    COLOR_FONDO = (200, 200, 200)       # Gris para el fondo base
-    COLOR_GRILLA = (220, 220, 220)      # Gris claro para las líneas de la cuadrícula
-    COLOR_PARED = (0, 0, 0)             # Negro absoluto para obstáculos físicos
-    COLOR_CAMINO = (255, 255, 255)      # Blanco puro para rutas transitables
-    COLOR_TEXTO = (0, 0, 0)             # Negro para identificadores numéricos
-    COLOR_INDICADOR = (255, 0, 0)       # Rojo para los triángulos de acceso
 
     def __init__(self, mapa_simulacion: 'Mapa', tamano_celda: int = 40):
+
+        """
+        Dedicado a la representación gráfica del entorno.
+        Mantiene un estado visual independiente para permitir la modificación de colores
+        en tiempo de ejecución (ej. visualización de algoritmos de búsqueda).
+        """
+
+        # Definición de paleta de colores (Formato RGB)
+        COLOR_FONDO = (200, 200, 200)       # Gris para el fondo base
+        COLOR_GRILLA = (220, 220, 220)      # Gris claro para las líneas de la cuadrícula
+        COLOR_PARED = (0, 0, 0)             # Negro absoluto para obstáculos físicos
+        COLOR_CAMINO = (255, 255, 255)      # Blanco puro para rutas transitables
+        COLOR_TEXTO = (0, 0, 0)             # Negro para identificadores numéricos
+        COLOR_INDICADOR = (255, 0, 0)       # Rojo para los triángulos de acceso
+        COLOR_EXPANDIDO = (220, 220, 220)
+        COLOR_CAMINADO = (255, 0, 0) 
+        COLOR_CAMINO_FINAL = (0, 255, 0)
         """
         Inicializa el subsistema gráfico.
         Calcula dinámicamente las dimensiones de la ventana basándose en 

@@ -2,6 +2,7 @@
 
 import pygame
 import sys
+from Agentes.Agente import Agente
 from entorno.casilla import Casilla
 from entorno.camino import Camino
 from entorno.pared import Pared
@@ -55,6 +56,7 @@ def inicializar_simulacion() -> 'Mapa':
     Función constructora del modelo de datos espacial.
     Diseñada de forma modular para permitir la personalización absoluta del entorno.
     """
+    Agente = Agente
     
     # --- CONFIGURACIÓN DEL GESTOR ESPACIAL ---
     ancho_terreno = 15
@@ -101,6 +103,7 @@ def inicializar_simulacion() -> 'Mapa':
     return entorno_simulacion
 
 def ejecutar_simulacion_grafica() -> None:
+
     """
     Controlador principal del ciclo de vida de la aplicación.
     Conecta el modelo de datos matemáticos con el motor de renderizado gráfico.

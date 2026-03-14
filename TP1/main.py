@@ -56,8 +56,7 @@ def inicializar_simulacion() -> 'Mapa':
     Función constructora del modelo de datos espacial.
     Diseñada de forma modular para permitir la personalización absoluta del entorno.
     """
-    Agente = Agente
-    
+
     # --- CONFIGURACIÓN DEL GESTOR ESPACIAL ---
     ancho_terreno = 15
     largo_terreno = 13
@@ -108,32 +107,99 @@ def ejecutar_simulacion_grafica() -> None:
     Controlador principal del ciclo de vida de la aplicación.
     Conecta el modelo de datos matemáticos con el motor de renderizado gráfico.
     """
-    
-    # Instanciación del modelo espacial base
+
+    # 1. Instanciación del modelo espacial
     mapa_generado = inicializar_simulacion()
-    
-    # Inicialización del motor gráfico con una escala de 40 píxeles por celda
+
+    # 2. Inicialización del motor gráfico
     motor_grafico = RenderizadorPygame(mapa_generado, tamano_celda=40)
-    
-    # Prueba de la funcionalidad de coloreado dinámico en tiempo de ejecución
-    # Esto simula cómo el futuro algoritmo A* marcará su ruta óptima o 
-    # cómo se visualizará la posición en tiempo real del agente de IA.
-    #color_ruta_prueba = (150, 255, 150) # Tonalidad verde claro (RGB)
-    #motor_grafico.establecer_color_casilla(1, 1, color_ruta_prueba)
+    clock = pygame.time.Clock()
 
+    # 3. Creación del agente
+    agente = Agente(mapa_generado)
 
-    # 4. Bucle infinito de eventos del sistema operativo y renderizado
+    X_i = 1
+    Y_i = 6
+    agente.set_Inicio(X_i,Y_i)
+    motor_grafico.establecer_color_casilla(X_i, Y_i, (255, 0, 0))
+    agente.set_objetivo(9, 9)
+
+    # -------------------------------
+    # VARIABLES DE OBSERVACIÓN
+    # -------------------------------
+
+    frontera_anterior = set()
+    posicion_anterior = (agente.x, agente.y)
+
+    # -------------------------------
+    # LOOP PRINCIPAL
+    # -------------------------------
+
     simulacion_activa = True
+
     while simulacion_activa:
-        # Procesamiento de interacciones del usuario (ej. presionar la 'X' de la ventana)
+        
+        # Eventos del sistema
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 simulacion_activa = False
-                
-        # Refresco del cuadro visual en la pantalla
+
+        # -------------------------------
+        # PASO DEL ALGORITMO
+        # -------------------------------
+
+        agente.mover()
+        print("costo" ,agente.obtener_costo_camino())
+        posicion_actual = (agente.x, agente.y)
+
+        # -------------------------------
+        # DETECTAR NODOS NUEVOS EN FRONTERA
+        # -------------------------------
+
+        frontera_actual = set(agente.frontera_dict.keys())
+
+        nuevos = frontera_actual - frontera_anterior
+
+        for x, y in nuevos:
+            motor_grafico.establecer_color_casilla(x, y, (0, 0, 255))  # azul
+
+        # -------------------------------
+        # DETECTAR MOVIMIENTO DEL AGENTE
+        # -------------------------------
+
+        if posicion_actual != posicion_anterior:
+
+            motor_grafico.establecer_color_casilla(
+                posicion_actual[0],
+                posicion_actual[1],
+                (255, 255, 0)   # amarillo
+            )
+
+        # -------------------------------
+        # SI SE ENCONTRÓ CAMINO FINAL
+        # -------------------------------
+
+        if agente.camino:
+
+            for x, y in agente.camino:
+                motor_grafico.establecer_color_casilla(
+                    x, y, (255, 0, 0)  # rojo
+                )
+
+        # -------------------------------
+        # ACTUALIZAR HISTORIA
+        # -------------------------------
+
+        frontera_anterior = frontera_actual
+        posicion_anterior = posicion_actual
+
+        # -------------------------------
+        # RENDER
+        # -------------------------------
+
         motor_grafico.actualizar()
-        
-    # Finalización ordenada del subsistema gráfico
+        clock.tick(5)
+
     pygame.quit()
     sys.exit()
 

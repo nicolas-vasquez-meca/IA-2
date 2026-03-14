@@ -1,99 +1,136 @@
 
 from entorno.mapa import Mapa
-from visualizacion.renderizador import RenderizadorPygame
 from entorno.casilla import Casilla
 import heapq
 
 
 class Nodo:
-    def __init__(self, mapa: Mapa):
-        self.x : int
-        self.y: int
-        self.transitable: bool
-        self.C_camino: int # Costo camino
-        self.C_destino: int # Costo destino
 
-        self.padre = (0,0)
+    def __init__(self, x, y, transitable, g, h, padre):
 
-        # Esto le dice a Python cómo comparar dos Nodos 
-        # al hacer < entre estos. (lt es Less Than)
+        self.x = x
+        self.y = y
 
-    def __lt__(self, otro):
-        return self.C_destino+self.C_camino < otro.C_destino + otro.C_camino
+        self.transitable = transitable
+
+        self.g = g  # costo camino
+        self.h = h  # costo destino
+
+        self.padre = padre
+
+    def f(self):
+        return self.g + self.h
 
 
 class Agente:
 
-    def __init__(self, mapa: Mapa, Render: RenderizadorPygame):
-        self.x:int
-        self.y: int
-        self.C_camino: int
+    def __init__(self, mapa: Mapa):
+
         self.mapa = mapa
-        self.Render = Render
 
-        self.objetivo = (0, 0)
+        self.x = 0
+        self.y = 0
 
-        self.camino = set()
-        self.frontera = []   # heap
-        self.visitados = []     # lista
+        self.objetivo = (0,0)
+
+        self.camino = []
+
+        self.visitados = {}
+        self.frontera_heap = []
+        self.frontera_dict = {}
+
+    def set_Inicio(self, x: int, y: int):
+        self.x = x
+        self.y = y
+
+        casilla: Casilla= self.mapa.obtener_casilla(x,y)
+
+        if casilla is None:
+            raise ValueError("La posición inicial no existe en el mapa")
+        
+        h = self.heuristica(x,y)
+
+        nodo = Nodo(x,y,casilla.transitable,0,h,None)
+        self.visitados[(x,y)] = nodo
+
 
     def set_objetivo(self, x: int, y: int):
         self.objetivo = (x, y)
 
+
     def reconstruir_camino(self):
-        pass
+
+        pos = (self.x,self.y)
+
+        while pos is not None:
+
+            self.camino.append(pos)
+
+            nodo = self.visitados[pos]
+
+            pos = nodo.padre
+
+        self.camino.reverse()
 
     def heuristica(self, x, y):
         return abs(x - self.objetivo[0]) + abs(y - self.objetivo[1])
 
 
-    def buscar_nodo(self, x, y) -> Nodo:
-        for nodo in self.frontera:
-            if nodo.x == x and nodo.y == y:
-                return nodo
-        return None
+    def expandir(self):
 
+        vecinos = [
+            (self.x-1, self.y),
+            (self.x+1, self.y),
+            (self.x, self.y-1),
+            (self.x, self.y+1)
+        ]
 
-    def verMapa(self, x: int, y: int) -> Nodo:
+        for x,y in vecinos:
 
-        if self.buscar_nodo(x,y) is None:
+            if (x,y) in self.visitados:
+                continue
 
-            casilla = self.mapa.obtener_casilla(x, y)
-            h = self.heuristica(x, y)
-            nodo = Nodo(x, y, casilla.transitable, casilla.costo + self.C_camino, h, (self.x, self.y))
+            if (x,y) in self.frontera_dict:
+                continue
 
-            heapq.heappush(self.frontera, (nodo.C_camino + nodo.C_destino, nodo))
-            return nodo
-        else:
-            return None
+            casilla = self.mapa.obtener_casilla(x,y)
+            if casilla is None or not casilla.transitable:
+                continue
 
+            g = self.visitados[(self.x,self.y)].g + casilla.costo
+            h = self.heuristica(x,y)
 
-    def expandir(self, x: int, y: int):
-        self.verMapa(x-1,y)
-        self.verMapa(x+1,y)
-        self.verMapa(x,y+1)
-        self.verMapa(x,y-1)
+            nodo = Nodo(x,y,casilla.transitable,g,h,(self.x,self.y))
+
+            self.frontera_dict[(x,y)] = nodo
+
+            heapq.heappush(self.frontera_heap,(nodo.f(),(x,y)))
 
 
     def mover(self):
 
-        if (self.x, self.y) == self.objetivo:
-            self.reconstruir_camino()
+        if (self.x,self.y) == self.objetivo:
+
+            if not self.camino:
+                self.reconstruir_camino()
             return
-        
-        else:
-            self.expandir()
 
-            while self.frontera:
+        self.expandir()
 
-                _, nodo = heapq.heappop(self.frontera)
+        while self.frontera_heap:
 
-                if not nodo.transitable:
-                    continue
+            _, pos = heapq.heappop(self.frontera_heap)
 
-                self.x = nodo.x
-                self.y = nodo.y
+            if pos not in self.frontera_dict:
+                continue
 
-                self.visitados.append((self.x, self.y))
+            nodo = self.frontera_dict.pop(pos)
 
-                return
+            if not nodo.transitable:
+                continue
+
+            self.x, self.y = pos
+
+            self.visitados[pos] = nodo
+
+            return

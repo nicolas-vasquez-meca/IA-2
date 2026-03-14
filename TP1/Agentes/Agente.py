@@ -34,7 +34,6 @@ class Agente:
         self.objetivo = (0,0)
 
         self.camino = []
-
         self.visitados = {}
         self.frontera_heap = []
         self.frontera_dict = {}
@@ -107,13 +106,15 @@ class Agente:
             heapq.heappush(self.frontera_heap,(nodo.f(),(x,y)))
 
 
-    def mover(self):
+    def mover(self) -> bool:
 
         if (self.x,self.y) == self.objetivo:
 
             if not self.camino:
                 self.reconstruir_camino()
-            return
+                return
+            else:
+                return True
 
         self.expandir()
 
@@ -133,4 +134,12 @@ class Agente:
 
             self.visitados[pos] = nodo
 
-            return
+            return False
+        return True
+    
+    def obtener_costo_camino(self) -> int:
+        if self.camino:
+            return len(self.camino)
+        else:
+            return ValueError("El agente aun no llega a la meta (ejecutar mas veces mover())")
+    

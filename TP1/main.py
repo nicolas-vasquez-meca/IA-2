@@ -149,7 +149,7 @@ def ejecutar_simulacion_grafica() -> None:
         # -------------------------------
 
         agente.mover()
-
+        print("costo" ,agente.obtener_costo_camino())
         posicion_actual = (agente.x, agente.y)
 
         # -------------------------------

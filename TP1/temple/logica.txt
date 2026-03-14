@@ -8,8 +8,8 @@ while T > temperatura_min:
 
     vecino = generar_vecino(estado_actual)
 
-    ΔE = costo(vecino) - costo(estado_actual)
-
+    ΔE = costo(vecino) - costo(estado_actual) 		// vecino=(C, P1, P4, P3, P5, P6)
+()
     if ΔE < 0:
         estado_actual = vecino
 

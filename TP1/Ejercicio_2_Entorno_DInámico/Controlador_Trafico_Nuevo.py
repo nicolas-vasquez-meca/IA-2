@@ -3,10 +3,15 @@ from TP1.Agentes.Agente import Agente
 class ControladorTrafico:
 
     def __init__(self, agentes):
+
+        if len(agentes) == 2:
+            return ValueError("Solo se pueden usar 2 agentes, cambiar resolver_conflicto() despues del warning para mas agentes")
+        
         self.agentes: list = agentes
         self.agentes_replanificar = set()
 
         self.paso = 0
+
         # planificación inicial
         for agente in self.agentes:
 
@@ -41,23 +46,25 @@ class ControladorTrafico:
         # diccionario: clave = (x,y) , valor = lista de indices donde aparece
         ocurrencias = {}
 
-        for i, posicion in enumerate(estado_actual): # 0, (1,2)
+        for i, posicion in enumerate(estado_actual):
 
             if posicion not in ocurrencias:
-                ocurrencias[posicion] = []            #ocurrencias[1,2] = [] #ocurrencias[4,5] = []
+                ocurrencias[posicion] = []         
 
-            ocurrencias[posicion].append(i)           # ocurrencias[1,2] = (0,3,4)  # ocurrencias[4,5] = (1,2,5)
+            ocurrencias[posicion].append(i)         
 
         # buscar los que se repiten
         conflictos = {}
         total_repeticiones = 0
 
-        for posicion, indices in ocurrencias.items(): # (1,2) => (0, 3, 4) len => 3
+        for posicion, indices in ocurrencias.items(): 
 
             if len(indices) > 1:
-                conflictos[posicion] = indices       # (1,2) 
+                conflictos[posicion] = indices       
                 total_repeticiones += len(indices)
         
+        # ////////////////////////////////////////////////////////////////////////////////////////////////
+        #                        WARNING: Algoritmo de solo 2 agentes a la vez
+        # ////////////////////////////////////////////////////////////////////////////////////////////////
         
 
-        

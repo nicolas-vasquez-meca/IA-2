@@ -1,8 +1,4 @@
 """
-simulated_annealing_picking.py
-
-Capa de optimización global para el problema de picking en almacén.
-
 Qué hace este módulo:
 - Usa el A* ya implementado en la clase Agente para calcular distancias mínimas.
 - Usa Simulated Annealing para optimizar el orden global de visita de estanterías.
@@ -10,7 +6,7 @@ Qué hace este módulo:
 - Usa caché para no recalcular A* entre los mismos pares de puntos.
 - Puede reconstruir el recorrido completo final.
 
-Integración esperada con el proyecto actual:
+Integración:
 - main.py sigue construyendo el mapa con inicializar_simulacion().
 - main.py puede importar este módulo y pedir la mejor secuencia para una orden.
 - Luego, opcionalmente, puede animar el recorrido tramo por tramo con Pygame.
@@ -25,35 +21,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-# ---------------------------------------------------------------------
-# Imports robustos: funcionan tanto en el proyecto real como en pruebas
-# ---------------------------------------------------------------------
-try:
-    from Agentes.Agente import Agente
-except Exception:
-    from Agente import Agente  # type: ignore
-
-try:
-    from entorno.estanteria import Estanteria
-except Exception:
-    from estanteria import Estanteria  # type: ignore
-
-try:
-    from entorno.mapa import Mapa
-except Exception:
-    from mapa import Mapa  # type: ignore
+from Agentes.Agente import Agente
+from entorno.estanteria import Estanteria
+from entorno.mapa import Mapa
 
 Coordinate = Tuple[int, int]
 
-
 @dataclass(frozen=True)
 class SegmentoRuta:
-    """Representa un tramo del recorrido entre dos puntos del mapa."""
 
-    origen: Coordinate
-    destino: Coordinate
-    costo: float
-    camino: Tuple[Coordinate, ...]
+    origen: Coordinate     
+    destino: Coordinate     
+    costo: float            
+    camino: Tuple[Coordinate, ...]  
 
 
 @dataclass
@@ -72,13 +52,9 @@ class ResultadoSA:
 
 class SimulatedAnnealingPicking:
     """
-    Resuelve el orden de picking usando Simulated Annealing.
-
-    Estado:
-        permutación de identificadores de estanterías, por ejemplo [40, 26, 13, 14]
-
-    Vecino:
-        intercambio simple entre dos posiciones de la permutación.
+    Algoritmo de Simulated Annealing.
+    Estado:permutación de identificadores de estanterías
+    Vecino:intercambio simple entre dos posiciones de la permutación.
 
     Costo:
         distancia(inicio, acceso_est_1) + suma distancias entre accesos consecutivos
@@ -109,10 +85,10 @@ class SimulatedAnnealingPicking:
         # id_estanteria -> objeto Estanteria
         self.estanterias: Dict[int, Estanteria] = self._indexar_estanterias()
 
-        # Caché entre coordenadas exactas transitables
+        # Caché que guarda rutas entre dos coordenadas exactas
         self._cache_segmentos: Dict[Tuple[Coordinate, Coordinate], SegmentoRuta] = {}
 
-        # Caché entre origen puntual y estantería destino: guarda mejor acceso elegido
+        # Caché que guarda el mejor tramo desde un punto cualquiera hacia una estantería
         self._cache_hacia_estanteria: Dict[Tuple[Coordinate, int], SegmentoRuta] = {}
 
     # ================================================================
@@ -135,14 +111,7 @@ class SimulatedAnnealingPicking:
         return self.estanterias[identificador]
 
     def puntos_acceso_estanteria(self, identificador: int) -> List[Coordinate]:
-        """
-        Devuelve los puntos de acceso válidos de una estantería.
-
-        Nota:
-        En tu clase Estanteria los accesos están guardados en _puntos_acceso.
-        Como actualmente no hay property pública, aquí se accede a ese atributo.
-        Si luego agregan una property puntos_acceso, este método se puede simplificar.
-        """
+        """Devuelve los puntos de acceso válidos de una estantería."""
         est = self.obtener_estanteria(identificador)
         puntos = getattr(est, "_puntos_acceso", None)
         if puntos is None:
@@ -173,7 +142,7 @@ class SimulatedAnnealingPicking:
         Se crea un agente nuevo por consulta para evitar contaminación de estado
         interno, ya que la clase Agente actual no tiene un método reiniciar().
         """
-        if (origen, destino) in self._cache_segmentos:
+        if (origen, destino) in self._cache_segmentos:       #Si el segmnte ya fue calculado no se vuelve a calcular con A*
             return self._cache_segmentos[(origen, destino)]
 
         agente = Agente(self.mapa)
@@ -196,8 +165,8 @@ class SimulatedAnnealingPicking:
                 f"No se encontró camino A* entre {origen} y {destino}."
             )
 
-        # IMPORTANTE:
-        # En Agente.obtener_costo_camino() hoy se devuelve len(camino).
+        # IMPORTANTE Mencionar en lo que hizo el NICO:
+        # En Agente.obtener_costo_camino()devuelve len(camino). Este metodo era el que preguntaba el costo
         # Eso sirve si todos los costos valen 1. Para mantener compatibilidad,
         # aquí usamos el costo g real del nodo objetivo, que es más correcto.
         costo_real = agente.visitados[(agente.x, agente.y)].g
@@ -248,13 +217,7 @@ class SimulatedAnnealingPicking:
     @staticmethod
     def cargar_ordenes_desde_csv(ruta_csv: str | Path) -> List[List[int]]:
         """
-        Carga órdenes desde un CSV simple como el que mostraste:
-            40,26,13,14,29,34,28
-            32,23,22,36,17
-            ...
-
-        Cada fila se interpreta como una orden.
-        """
+        Carga órdenes desde un CSV. Cada fila se interpreta como una orden."""
         ruta = Path(ruta_csv)
         if not ruta.exists():
             raise FileNotFoundError(f"No existe el archivo: {ruta}")
@@ -289,10 +252,7 @@ class SimulatedAnnealingPicking:
         return estado
 
     def generar_vecino(self, estado: Sequence[int]) -> List[int]:
-        """
-        Genera un vecino por simple permutación entre dos objetivos.
-        Este punto coincide exactamente con lo que aclaraste.
-        """
+        """Genera un vecino por simple permutación entre dos objetivos."""
         vecino = list(estado)
         if len(vecino) < 2:
             return vecino
@@ -303,8 +263,6 @@ class SimulatedAnnealingPicking:
     def costo_estado(self, estado: Sequence[int]) -> float:
         """
         Calcula el costo total de una secuencia.
-
-        Importante:
         - El estado se representa con IDs de estanterías.
         - Para cada estantería se elige el mejor punto de acceso desde la posición actual.
         - En el mapa actual hay un único acceso por estantería, así que esto es exacto.
@@ -341,8 +299,8 @@ class SimulatedAnnealingPicking:
         """
         A partir de una secuencia de estanterías, reconstruye:
         - secuencia de puntos realmente visitados
+        - segmentos individuales: tramo entre dos puntos
         - recorrido completo concatenado
-        - segmentos individuales
         """
         puntos_visitados: List[Coordinate] = [self.inicio]
         recorrido_total: List[Coordinate] = []

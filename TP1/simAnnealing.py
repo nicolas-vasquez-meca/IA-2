@@ -7,18 +7,13 @@ import pygame
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
-try:
-    from entorno.camino import Camino
-    from entorno.pared import Pared
-    from entorno.estanteria import Estanteria, Direccion
-    from entorno.mapa import Mapa
-except ImportError:
-    from entorno.camino import Camino
-    from entorno.pared import Pared
-    from entorno.estanteria import Estanteria, Direccion
-    from entorno.mapa import Mapa
+from entorno.camino import Camino
+from entorno.pared import Pared
+from entorno.estanteria import Estanteria, Direccion
+from entorno.mapa import Mapa
 
-from temple.simulated_annealing_picking import ResultadoSA, SimulatedAnnealingPicking
+
+from temple.temple import ResultadoSA, SimulatedAnnealingPicking
 
 Coordinate = Tuple[int, int]
 
@@ -523,7 +518,7 @@ def ejecutar_desde_csv(
 
 def main() -> None:
     ejecutar_desde_csv(
-        indice_orden=25,
+        indice_orden=20,
         temperatura_inicial=100.0,
         factor_enfriamiento=0.995,
         temperatura_minima=0.001,

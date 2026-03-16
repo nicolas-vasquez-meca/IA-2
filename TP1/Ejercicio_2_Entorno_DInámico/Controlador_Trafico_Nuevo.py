@@ -1,15 +1,12 @@
 from TP1.Agentes.Agente import Agente
+import heapq
 
 class ControladorTrafico:
 
     def __init__(self, agentes):
 
-        # ⚠️ Esto estaba al revés en tu código
-        # if len(agentes) == 2:
-        #     return ValueError("Solo se pueden usar 2 agentes")
-
         if len(agentes) != 2:
-            raise ValueError("Solo se soportan 2 agentes actualmente")
+            raise ValueError("Solo se soportan 2 agentes")
 
         self.agentes: list = agentes
         self.agentes_replanificar = set()
@@ -34,7 +31,7 @@ class ControladorTrafico:
         else:
             return b
         
-        
+
     def Step(self):
 
         self.paso = self.paso + 1
@@ -45,11 +42,9 @@ class ControladorTrafico:
 
             # ⚠️ prevención de error si el camino termina
             if self.paso < len(agente.camino):
-                estado_actual.append(agente.camino[self.paso])
-            else:
-                estado_actual.append((agente.x, agente.y))
 
-        self.resolver_conflicto(estado_actual)
+                estado_actual.append(agente.camino[self.paso])
+                self.resolver_conflicto(estado_actual)
 
 
     def resolver_conflicto(self, estado_actual: list):
@@ -57,7 +52,9 @@ class ControladorTrafico:
         # diccionario: clave = (x,y) , valor = lista de indices donde aparece
         ocurrencias = {}
 
-        for i, posicion in enumerate(estado_actual):
+        estado_copia = estado_actual
+
+        for i, posicion in enumerate(estado_copia):
 
             if posicion not in ocurrencias:
                 ocurrencias[posicion] = []         
@@ -74,55 +71,59 @@ class ControladorTrafico:
                 conflictos[posicion] = indices       
                 total_repeticiones += len(indices)
         
+        
         # ////////////////////////////////////////////////////////////////////////////////////////////////
         #                        WARNING: Algoritmo de solo 2 agentes a la vez
         # ////////////////////////////////////////////////////////////////////////////////////////////////
 
         # -----------------------------------------------------------------------------------------------
-        # CASO 1: NO HAY CONFLICTO
-        # -----------------------------------------------------------------------------------------------
-
-        if total_repeticiones == 0:
-
-            for agente in self.agentes:
-
-                if agente in self.agentes_replanificar:
-
-                    # recalcular A*
-                    agente.frontera = []
-                    agente.visitados = []
-
-                    while not agente.mover():
-                        pass
-
-                else:
-                    agente.mover()
-
-            self.agentes_replanificar.clear()
-            return
-
-
-        # -----------------------------------------------------------------------------------------------
-        # A PARTIR DE AQUÍ SOLO FUNCIONA CORRECTAMENTE PARA 2 AGENTES
+        # ERROR: HAY CONFLICTO (por haber mas de 2 agentes)
         # -----------------------------------------------------------------------------------------------
 
         if len(self.agentes) != 2:
-            print("Conflicto detectado pero el algoritmo solo soporta 2 agentes")
+            print("Conflicto detectado, el algoritmo solo soporta 2 agentes")
             return
 
+        # -----------------------------------------------------------------------------------------------
+        # CASO 0: NO HAY CONFLICTO
+        # -----------------------------------------------------------------------------------------------
 
-        a = self.agentes[0]
-        b = self.agentes[1]
+        if total_repeticiones == 0:
+            return
 
-        pos_a = estado_actual[0]
-        pos_b = estado_actual[1]
+        # -----------------------------------------------------------------------------------------------
+        # CASOS 1 y 2:
+        # -----------------------------------------------------------------------------------------------
+        a: Agente = self.agentes[0]
+        b: Agente = self.agentes[1]
+
+        pos_a = estado_copia[0]
+        pos_b = estado_copia[1]
 
         ganador = self.prioridad(a, b)
         perdedor = b if ganador == a else a
 
+        # -----------------------------------------------------------------------------------------------
+        # CASO 1: ambos quieren la MISMA casilla     
+        # -----------------------------------------------------------------------------------------------
+
+        if pos_a == b.objetivo and pos_b == b.objetivo:
+
+            nuevo_inicio = self.agentes[0].camino[self.paso-1]
+            self.agentes[0].set_Inicio[nuevo_inicio]
+            while not self.Mover_Agente(b.objetivo[0], b.objetivo[1], 0):
+                pass
+
+        elif pos_b == a.objetivo and pos_a == a.objetivo:
+
+            nuevo_inicio = self.agentes[1].camino[self.paso-1]
+            self.agentes[1].set_Inicio[nuevo_inicio]
+
+            while not self.Mover_Agente(a.objetivo[0], a.objetivo[1], 1):
+                pass
 
         # -----------------------------------------------------------------------------------------------
-        # CASO 2: ambos quieren la MISMA casilla
+        # CASO 2: ambos quieren la MISMA casilla   
         # -----------------------------------------------------------------------------------------------
 
         if pos_a == pos_b:
@@ -132,14 +133,21 @@ class ControladorTrafico:
                 pass
 
             # el otro se queda quieto
-            self.agentes_replanificar.add(perdedor)
+            if b == perdedor:
+                self.agentes[1].camino.insert(self.paso, self.agentes[1].camino[self.paso])
 
+            elif a == perdedor:
+                self.agentes[0].camino.insert(self.paso, self.agentes[1].camino[self.paso])
 
         # -----------------------------------------------------------------------------------------------
         # CASO 3: intercambio de posiciones (están enfrentados)
         # -----------------------------------------------------------------------------------------------
 
-        elif pos_a == (b.x, b.y) and pos_b == (a.x, a.y):
+        elif (self.paso + 1 < len(a.camino)
+              and self.paso + 1 < len(b.camino)
+              and pos_a == b.camino[self.paso + 1]
+              and pos_b == a.camino[self.paso + 1]
+            ):
 
             # el ganador avanza
             while not ganador.mover():
@@ -149,4 +157,49 @@ class ControladorTrafico:
             if perdedor.visitados:
                 perdedor.x, perdedor.y = perdedor.visitados.pop()
 
-            self.agentes_replanificar.add(perdedor)
+
+    """
+        Lo usamos solo en el caso 1 dentro de resolver conflicto y es para evitar una
+        posicion x, y especifica
+    """
+    def Mover_Agente(self, x: int, y:int, indice_agente: int):
+
+        if (self.agentes[indice_agente].x,self.agentes[indice_agente].y) == self.agentes[indice_agente].objetivo:
+
+            if not self.agentes[indice_agente].camino:
+                self.agentes[indice_agente].reconstruir_camino()
+                return
+            else:
+                return True
+
+        self.agentes[indice_agente].expandir()
+        # Esto elimina de la frontera el nodo que no queremos =============
+        if (x, y) in self.agentes[indice_agente].frontera_dict:
+            # Eliminar del dict
+            del self.agentes[indice_agente].frontera_dict[(x, y)]
+            
+            # Eliminar de la lista y re-organizar heap
+            h = self.agentes[indice_agente].frontera_heap()
+            h[:] = [item for item in h if item[1] != (x, y)]
+            heapq.heapify(h)
+        #===================================================================
+
+
+        while self.agentes[indice_agente].frontera_heap:
+
+            _, pos = heapq.heappop(self.agentes[indice_agente].frontera_heap)
+
+            if pos not in self.agentes[indice_agente].frontera_dict:
+                continue
+
+            nodo = self.agentes[indice_agente].frontera_dict.pop(pos)
+
+            if not nodo.transitable:
+                continue
+
+            self.agentes[indice_agente].x, self.agentes[indice_agente].y = pos
+
+            self.agentes[indice_agente].visitados[pos] = nodo
+
+            return False
+        return True

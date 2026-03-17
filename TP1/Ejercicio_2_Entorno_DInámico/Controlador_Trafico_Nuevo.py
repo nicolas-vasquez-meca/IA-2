@@ -1,4 +1,4 @@
-from TP1.Agentes.Agente import Agente
+from Agentes.Agente import Agente
 import heapq
 
 class ControladorTrafico:
@@ -32,49 +32,64 @@ class ControladorTrafico:
             return b
         
 
+    def get_pos(self, camino, i):
+        if i < len(camino):
+            return camino[i]
+        return camino[-1]
+    
+
     def Step(self):
 
-        self.paso = self.paso + 1
+        estado_siguiente = []
 
-        estado_actual: list = []
-
+        # 1️⃣ mirar el futuro (sin mover)
         for agente in self.agentes:
+            if self.paso+1 < len(agente.camino):
+                estado_siguiente.append(agente.camino[self.paso+1])
 
-            # ⚠️ prevención de error si el camino termina
-            if self.paso < len(agente.camino):
+        # 2️⃣ resolver conflictos
+        self.resolver_conflicto(estado_siguiente)
 
-                estado_actual.append(agente.camino[self.paso])
-                self.resolver_conflicto(estado_actual)
+        # 3️⃣ ahora sí mover
+        for agente in self.agentes:
+            if self.paso+1 < len(agente.camino):
+                agente.x, agente.y = agente.camino[self.paso+1]
+
+        # 4️⃣ avanzar tiempo
+        self.paso += 1
 
 
-    def resolver_conflicto(self, estado_actual: list):
+    def resolver_conflicto(self, estado_siguiente: list):
 
-        # diccionario: clave = (x,y) , valor = lista de indices donde aparece
-        ocurrencias = {}
+        # DEBUG
+        if(self.paso >= 4 and self.paso <= 9):
+            a: Agente = self.agentes[0]
+            b: Agente = self.agentes[1]
 
-        estado_copia = estado_actual
+            pos_a = self.get_pos(a.camino, self.paso)
+            pos_b = self.get_pos(b.camino, self.paso)
 
-        for i, posicion in enumerate(estado_copia):
+            next_a = self.get_pos(a.camino, self.paso+1)
+            next_b = self.get_pos(b.camino, self.paso+1)
 
-            if posicion not in ocurrencias:
-                ocurrencias[posicion] = []         
-
-            ocurrencias[posicion].append(i)         
-
-        # buscar los que se repiten
-        conflictos = {}
-        total_repeticiones = 0
-
-        for posicion, indices in ocurrencias.items(): 
-
-            if len(indices) > 1:
-                conflictos[posicion] = indices       
-                total_repeticiones += len(indices)
-        
+            print(self.paso)
+            print(pos_a)
+            print(pos_b)
+            print(next_a)
+            print(next_b)
+        # DEBUG
         
         # ////////////////////////////////////////////////////////////////////////////////////////////////
         #                        WARNING: Algoritmo de solo 2 agentes a la vez
         # ////////////////////////////////////////////////////////////////////////////////////////////////
+        a: Agente = self.agentes[0]
+        b: Agente = self.agentes[1]
+
+        pos_a = self.get_pos(a.camino, self.paso)
+        pos_b = self.get_pos(b.camino, self.paso)
+
+        next_a = self.get_pos(a.camino, self.paso+1)
+        next_b = self.get_pos(b.camino, self.paso+1)
 
         # -----------------------------------------------------------------------------------------------
         # ERROR: HAY CONFLICTO (por haber mas de 2 agentes)
@@ -85,83 +100,75 @@ class ControladorTrafico:
             return
 
         # -----------------------------------------------------------------------------------------------
-        # CASO 0: NO HAY CONFLICTO
-        # -----------------------------------------------------------------------------------------------
-
-        if total_repeticiones == 0:
-            return
-
-        # -----------------------------------------------------------------------------------------------
         # CASOS 1 y 2:
         # -----------------------------------------------------------------------------------------------
-        a: Agente = self.agentes[0]
-        b: Agente = self.agentes[1]
-
-        pos_a = estado_copia[0]
-        pos_b = estado_copia[1]
 
         ganador = self.prioridad(a, b)
         perdedor = b if ganador == a else a
 
         # -----------------------------------------------------------------------------------------------
-        # CASO 1: ambos quieren la MISMA casilla     
+        # CASO 1: uno llego a la posicion final y molesta al otro   
         # -----------------------------------------------------------------------------------------------
 
         if pos_a == b.objetivo and pos_b == b.objetivo:
-
+            print("caso 1")
             nuevo_inicio = self.agentes[0].camino[self.paso-1]
-            self.agentes[0].set_Inicio[nuevo_inicio]
+            self.agentes[0].set_Inicio(nuevo_inicio)
             while not self.Mover_Agente(b.objetivo[0], b.objetivo[1], 0):
                 pass
 
         elif pos_b == a.objetivo and pos_a == a.objetivo:
-
+            print("caso 1")
             nuevo_inicio = self.agentes[1].camino[self.paso-1]
-            self.agentes[1].set_Inicio[nuevo_inicio]
+            self.agentes[1].set_Inicio(nuevo_inicio)
 
             while not self.Mover_Agente(a.objetivo[0], a.objetivo[1], 1):
                 pass
+
 
         # -----------------------------------------------------------------------------------------------
         # CASO 2: ambos quieren la MISMA casilla   
         # -----------------------------------------------------------------------------------------------
 
-        if pos_a == pos_b:
+        # Caso donde estan enfrentadas y quieren ir a la posicion del otro
+        elif (pos_a == next_b and pos_b == next_a):
 
-            # el que tiene prioridad avanza
-            while not ganador.mover():
-                pass
+            print("caso 2a")
+            # el perdedor retrocede una casilla
+            if a == perdedor:
+                camino = self.agentes[0].camino
 
-            # el otro se queda quieto
-            if b == perdedor:
+                prev = camino[self.paso-1]
+                actual = camino[self.paso]
+
+                self.agentes[0].camino.insert(self.paso+1, prev)        # retrocede
+                self.agentes[0].camino.insert(self.paso+2, actual)    # vuelve al original
+
+            elif b == perdedor:
+                camino = self.agentes[1].camino
+
+                prev = camino[self.paso-1]
+                actual = camino[self.paso]
+
+                self.agentes[1].camino.insert(self.paso+1, prev)
+                self.agentes[1].camino.insert(self.paso+2, actual)
+
+
+
+        # Caso donde llegarian al mismo tiempo a la casilla
+        elif (next_a == next_b):
+
+            print("caso 2b: ⚠️ COLISIÓN futura detectada")
+            # El perdedor espera
+            if a == perdedor:
+                # El perdedor etrocede pero luego debe seguir por donde venia
+                self.agentes[0].camino.insert(self.paso, self.agentes[0].camino[self.paso])
+                
+            elif b == perdedor:
+                # Retrocede pero luego debe seguir por donde venia
                 self.agentes[1].camino.insert(self.paso, self.agentes[1].camino[self.paso])
 
-            elif a == perdedor:
-                self.agentes[0].camino.insert(self.paso, self.agentes[1].camino[self.paso])
 
-        # -----------------------------------------------------------------------------------------------
-        # CASO 3: intercambio de posiciones (están enfrentados)
-        # -----------------------------------------------------------------------------------------------
-
-        elif (self.paso + 1 < len(a.camino)
-              and self.paso + 1 < len(b.camino)
-              and pos_a == b.camino[self.paso + 1]
-              and pos_b == a.camino[self.paso + 1]
-            ):
-
-            # el ganador avanza
-            while not ganador.mover():
-                pass
-
-            # el perdedor retrocede una casilla
-            if perdedor.visitados:
-                perdedor.x, perdedor.y = perdedor.visitados.pop()
-
-
-    """
-        Lo usamos solo en el caso 1 dentro de resolver conflicto y es para evitar una
-        posicion x, y especifica
-    """
     def Mover_Agente(self, x: int, y:int, indice_agente: int):
 
         if (self.agentes[indice_agente].x,self.agentes[indice_agente].y) == self.agentes[indice_agente].objetivo:

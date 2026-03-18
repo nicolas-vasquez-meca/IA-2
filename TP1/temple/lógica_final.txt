@@ -1,0 +1,153 @@
+INICIO
+
+1. Cargar mapa y definir punto de inicio
+2. Crear clase SimulatedAnnealingPicking con:
+      - mapa
+      - posición inicial
+      - temperatura inicial
+      - factor de enfriamiento
+      - temperatura mínima
+      - máximo de iteraciones
+      - opción de volver o no al origen
+
+3. Indexar todas las estanterías del mapa
+4. Preparar memoria caché para no recalcular rutas repetidas
+
+
+//==============FUNCIONES AUXILIARES==================
+
+
+Función obtener_estanteria(id):
+    devolver la estantería con ese identificador
+
+Función puntos_acceso_estanteria(id):
+    buscar los puntos transitables desde donde se puede acceder a esa estantería
+    devolver esos puntos
+
+Función ejecutar_astar(origen, destino):
+    si la ruta ya fue calculada:
+        devolverla desde caché
+    si no:
+        crear un agente nuevo
+        configurar origen y destino
+        ejecutar A* hasta encontrar camino
+        guardar costo y camino
+        almacenar en caché
+        devolver segmento de ruta
+
+Función mejor_segmento_hacia_estanteria(origen, id_estanteria):
+    obtener todos los puntos de acceso de la estantería
+    para cada punto de acceso:
+        calcular ruta con A*
+    elegir la de menor costo
+    devolver mejor tramo
+
+
+//=========================LECTURA DE ÓRDENES====================
+
+
+Función cargar_ordenes_desde_csv(archivo):
+    leer archivo CSV
+    transformar cada fila en lista de IDs de estanterías
+    devolver todas las órdenes
+
+Función seleccionar_orden(ordenes, índice):
+    devolver una orden específica
+
+
+//===========================SIMULATED ANNEALING===================
+
+
+Función estado_inicial(objetivos):
+    mezclar aleatoriamente el orden de visita
+    devolver ese estado inicial
+
+Función generar_vecino(estado):
+    copiar estado
+    intercambiar dos posiciones al azar
+    devolver vecino
+
+Función costo_estado(estado):
+    posición_actual = inicio
+    costo_total = 0
+
+    para cada estantería en el estado:
+        obtener mejor tramo desde posición_actual hasta esa estantería
+        sumar costo de ese tramo
+        actualizar posición_actual
+
+    si hay que volver al origen:
+        calcular costo de regreso
+        sumarlo
+
+    devolver costo_total
+
+Función probabilidad_aceptacion(delta, temperatura):
+    si delta <= 0:
+        devolver 1
+    si no:
+        devolver exp(-delta / temperatura)
+
+-------------------------------------------------
+ALGORITMO PRINCIPAL
+-------------------------------------------------
+
+Función resolver(objetivos):
+    validar que existan las estanterías
+    generar estado actual inicial
+    calcular costo actual
+
+    mejor_estado = estado_actual
+    mejor_costo = costo_actual
+
+    guardar historial de costos
+
+    temperatura = temperatura_inicial
+    iteración = 0
+
+    mientras temperatura > temperatura_mínima
+          y iteración < máximo_iteraciones:
+
+        generar vecino
+        calcular costo del vecino
+
+        delta = costo_vecino - costo_actual
+
+        si vecino es mejor:
+            aceptar vecino
+        si vecino es peor:
+            aceptarlo con cierta probabilidad según temperatura
+
+        si costo actual mejora al mejor conocido:
+            actualizar mejor_estado y mejor_costo
+
+        guardar historial
+        bajar temperatura
+        iteración = iteración + 1
+
+    reconstruir la ruta completa del mejor estado
+    devolver resultado final
+
+-------------------------------------------------
+RECONSTRUCCIÓN FINAL
+-------------------------------------------------
+
+Función reconstruir_ruta_estado(mejor_estado):
+    posición_actual = inicio
+    recorrido_total = []
+    segmentos = []
+    puntos_visitados = [inicio]
+
+    para cada estantería en mejor_estado:
+        obtener mejor tramo hacia esa estantería
+        agregar el tramo a segmentos
+        unir camino al recorrido_total
+        agregar destino a puntos_visitados
+        actualizar posición_actual
+
+    si hay regreso al origen:
+        calcular y agregar tramo de regreso
+
+    devolver puntos_visitados, recorrido_total y segmentos
+
+FIN

@@ -1,0 +1,22 @@
+estado_actual = orden_aleatorio(productos)
+
+mejor_estado = estado_actual
+
+T = temperatura_inicial
+
+while T > temperatura_min:
+
+    vecino = generar_vecino(estado_actual)
+
+    ΔE = costo(vecino) - costo(estado_actual) 		// vecino=(C, P1, P4, P3, P5, P6)
+()
+    if ΔE < 0:
+        estado_actual = vecino
+
+    else:
+        aceptar con probabilidad exp(-ΔE / T)
+
+    if costo(estado_actual) < costo(mejor_estado):
+        mejor_estado = estado_actual
+
+    T = α * T

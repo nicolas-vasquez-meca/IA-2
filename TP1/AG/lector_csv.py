@@ -18,27 +18,9 @@ class LectorOrdenesCSV:
         Retorna: Matriz donde cada sublista representa una secuencia
         cronologica de identificados de estantes.
         """
-
-        secuencias = []
-        try:
-            with open(self.ruta_archivo, mode='r', encoding='utf-8') as archivo:
-                lector_csv = csv.reader(archivo)
-                for fila in lector_csv:
-                    # Se descartan filas vacías resultantes de saltos de línea anómalos
-                    if fila:
-                        # Transformación de tipo y limpieza de espacios en blanco
-                        secuencia_entera = [int(identificador.strip()) for identificador in fila if identificador.strip()]
-                        if secuencia_entera:
-                            secuencias.append(secuencia_entera)
-        
-        except FileNotFoundError:
-            print(f"[ERROR CRÍTICO DE I/O] El archivo '{self.ruta_archivo}' no fue localizado en el sistema.")
-            raise
-        except ValueError as error_valor:
-            print(f"[ERROR DE TIPADO] Se detectó un valor no numérico en la secuencia de órdenes: {error_valor}")
-            raise
-            
-        return secuencias
+        with open(self.ruta_archivo, mode='r', encoding='utf-8') as archivo:
+            # Se utiliza la división de texto por comas
+            return [[int(valor) for valor in linea.split(',')] for linea in archivo if linea.strip()]
     
 
 if __name__ == "__main__":
@@ -66,7 +48,7 @@ if __name__ == "__main__":
         # 3. Verificacion de resultados
         print("\n[*] Extraccion completada. Verificando estructura de salida:")
         for indice, secuencia in enumerate(resultado_matriz):
-            print(f"    Secuencia {indice + 1}: {secuencia} | Tipo de dato interno: {type(secuencia[0]).__name__}")
+            print(f"    Secuencia {indice + 1}: {secuencia}")
             
         # 4. Limpieza del entorno de prueba
         os.remove(archivo_prueba)

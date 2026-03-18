@@ -1,87 +1,58 @@
-from typing import Dict, List
-from dataclasses import dataclass
-from collections import defaultdict
-# CONTENEDOR DE RESULTADOS (Inmutable)
-
-@dataclass(frozen=True)
-class MetricasDemanda:
-    """
-    Estructura de datos para transportar los resultados
-    Al estar congelada, se garantiza que no pueda ser modificada
-    una vez calculados, previniendo erroes
-    """
-    frecuencias_absolutas: Dict[int, int]
-    frecuencias_relativas: Dict[int, float]
-    total_operaciones: int
+from typing import Dict, List, Tuple
+from itertools import chain
+from collections import Counter
+from lector_csv import LectorOrdenesCSV
+import os
 
 class ProcesadorDemanda:
     """
     Modulo para aplicar lógica matemática sobre las secuencias de ordenes.
-    No requiere instanciado porque su funcion es transaccional:
     recibe datos -> los procesa -> retorna un resultado
     """
 
-    def generar_metricas(secuencias: List[List[int]]) -> MetricasDemanda:
+    def generar_metricas(secuencias: List[List[int]]) -> Tuple[Dict[int, int], Dict[int, float], int]:
         """
         Calcula las estadísticas de demanda para cada estante.
-        
-        Inicialización
-        Se utiliza 'defaultdict(int)' para que, si un estante se detecta por primera
-        vez, su conteo inicie automáticamente en 0 sin generar un error de sistema.
+
+        Retorna una tupla con: (Frec. Absolutas, Frec. Relativas, Total Operaciones)
         """
-        conteo_absoluto: Dict[int, int] = defaultdict(int)
-        total_movimientos = 0
 
-        # Agregación Computacional (Frecuencia Absoluta)
-        # Se inspecciona cada secuencia de órdenes y cada estante dentro de ella.
-        for secuencia in secuencias:
-            for identificador_estante in secuencia:
-                conteo_absoluto[identificador_estante] += 1
-                total_movimientos += 1
+        # NOTA:
+        # chain.from_iterable una todas las secuencias en una sola linea
+        # Counter cuenta cada aparicion
+        frecuencias_absolutas = Counter(chain.from_iterable(secuencias))
 
-        # Normalización (Frecuencia Relativa)
-        # Se transforma el conteo bruto en un coeficiente de probabilidad (0.0 a 1.0).
-        conteo_relativo: Dict[int, float] = {}
-        
-        # Validación de seguridad para evitar la división matemática por cero.
-        if total_movimientos > 0:
-            for estante, cantidad_visitas in conteo_absoluto.items():
-                conteo_relativo[estante] = cantidad_visitas / total_movimientos
+        total_operaciones = sum(frecuencias_absolutas.values())
 
-        #  Encapsulamiento
-        # Se empaquetan los diccionarios y el total en la estructura inmutable.
-        # Se convierte el 'defaultdict' a un 'dict' estándar
-        return MetricasDemanda(
-            frecuencias_absolutas=dict(conteo_absoluto),
-            frecuencias_relativas=conteo_relativo,
-            total_operaciones=total_movimientos
-        )
+        # Frecuencia relativa en una sola linea
+        frecuencias_relativas = {
+            estante: cantidad / total_operaciones
+            for estante, cantidad in frecuencias_absolutas.items()
+        }
 
-# VALIDACION
+        return dict(frecuencias_absolutas), frecuencias_relativas, total_operaciones
+
+
 if __name__ == "__main__":
-    print("--- Iniciando validacion de modulo: ProcesadorDemanda ---")
+    print("--- Iniciando validacion ---")
     
-    # 1. Simulación de datos de entrada (análogo a lo que entregaría el LectorHistoricoCSV)
-    # Imaginemos que el estante 10 se visita 3 veces, el estante 20 se visita 1 vez.
-    datos_simulados = [
-        [10, 20, 10],
-        [10]
-    ]
+    # 1. Creación de entorno efímero
+    archivo_prueba = "ordenes_optimizadas.csv"
+    with open(archivo_prueba, mode='w', encoding='utf-8') as f:
+        f.write("40,26,13\n32,23\n40,32,13\n")
     
-    print("[*] Procesando secuencias de prueba simuladas...")
+    # 2. Ejecución lineal de los módulos
+    lector = LectorOrdenesCSV(archivo_prueba)
+    datos_crudos = lector.extraer_secuencias()
     
-    # 2. Ejecución del procesamiento
-    metricas_resultado = ProcesadorDemanda.generar_metricas(datos_simulados)
+    abs_freq, rel_freq, total = ProcesadorDemanda.generar_metricas(datos_crudos)
     
-    # 3. Verificación de los cálculos matemáticos
-    print("\n[*] Resultados Estadisticos Obtenidos:")
-    print(f"    Total de operaciones procesadas: {metricas_resultado.total_operaciones}")
-    print("\n    Desglose por Estante:")
+    # 3. Verificación de resultados
+    print(f"[*] Secuencias extraidas: {datos_crudos}")
+    print(f"[*] Operaciones totales procesadas: {total}")
+    for estante in abs_freq.keys():
+        print(f"    - Estante {estante}: {abs_freq[estante]} visitas | Probabilidad: {rel_freq[estante]:.2f}")
     
-    for estante in metricas_resultado.frecuencias_absolutas.keys():
-        f_abs = metricas_resultado.frecuencias_absolutas[estante]
-        f_rel = metricas_resultado.frecuencias_relativas[estante]
-        # Se formatea la salida para mostrar el porcentaje con dos decimales
-        print(f"    - Estante {estante}: Visitado {f_abs} veces (Probabilidad de demanda: {f_rel:.2%})")
-        
-    print("\n--- Validacion finalizada. Precision matematica confirmada. ---")
+    # 4. Limpieza
+    os.remove(archivo_prueba)
+    print("--- Validacion finalizada. ---")

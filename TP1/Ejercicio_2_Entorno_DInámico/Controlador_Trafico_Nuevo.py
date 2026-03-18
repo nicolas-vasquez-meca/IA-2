@@ -9,16 +9,10 @@ class ControladorTrafico:
             raise ValueError("Solo se soportan 2 agentes")
 
         self.agentes: list = agentes
-        self.agentes_replanificar = set()
-
         self.paso = 0
 
-        # planificación inicial (A*)
-        for agente in self.agentes:
-
-            # ejecuta mover() hasta que termine de calcular el camino
-            while not agente.mover():
-                pass
+        self.llego_A = False
+        self.llego_B = False
 
 
     def prioridad(self, a: Agente, b: Agente):
@@ -38,45 +32,70 @@ class ControladorTrafico:
         return camino[-1]
     
 
+    
     def Step(self):
+
+        if self.paso == 0:
+            for agente in self.agentes:
+                while not agente.mover():
+                    pass
 
         estado_siguiente = []
 
-        # 1️⃣ mirar el futuro (sin mover)
+        # ---------------------------
+        # SIEMPRE FUTURO (consistente)
+        # ---------------------------
         for agente in self.agentes:
-            if self.paso+1 < len(agente.camino):
-                estado_siguiente.append(agente.camino[self.paso+1])
+            next_pos = self.get_pos(agente.camino, self.paso + 1)
+            estado_siguiente.append(next_pos)
 
-        # 2️⃣ resolver conflictos
+        # ---------------------------
+        # resolver conflictos
+        # ---------------------------
         self.resolver_conflicto(estado_siguiente)
 
-        # 3️⃣ ahora sí mover
+        # ---------------------------
+        # mover agentes
+        # ---------------------------
+        i = 0
         for agente in self.agentes:
-            if self.paso+1 < len(agente.camino):
-                agente.x, agente.y = agente.camino[self.paso+1]
+            next_pos = self.get_pos(agente.camino, self.paso + 1)
 
-        # 4️⃣ avanzar tiempo
+            if i == 0 and not self.llego_A:
+                agente.x, agente.y = next_pos
+
+            elif i == 1 and not self.llego_B:
+                agente.x, agente.y = next_pos
+
+            # check llegada
+            if i == 0 and (agente.x, agente.y) == agente.objetivo:
+                self.llego_A = True
+
+            elif i == 1 and (agente.x, agente.y) == agente.objetivo:
+                self.llego_B = True
+
+            i += 1
+
         self.paso += 1
 
 
     def resolver_conflicto(self, estado_siguiente: list):
 
         # DEBUG
-        if(self.paso >= 4 and self.paso <= 9):
-            a: Agente = self.agentes[0]
-            b: Agente = self.agentes[1]
+        a: Agente = self.agentes[0]
+        b: Agente = self.agentes[1]
 
-            pos_a = self.get_pos(a.camino, self.paso)
-            pos_b = self.get_pos(b.camino, self.paso)
+        pos_a = self.get_pos(a.camino, self.paso)
+        pos_b = self.get_pos(b.camino, self.paso)
 
-            next_a = self.get_pos(a.camino, self.paso+1)
-            next_b = self.get_pos(b.camino, self.paso+1)
+        next_a = estado_siguiente[0]
+        next_b = estado_siguiente[1]
 
-            print(self.paso)
-            print(pos_a)
-            print(pos_b)
-            print(next_a)
-            print(next_b)
+        print(self.paso)
+        print(pos_a)
+        print(pos_b)
+        print(next_a)
+        print(next_b)
         # DEBUG
         
         # ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,8 +107,8 @@ class ControladorTrafico:
         pos_a = self.get_pos(a.camino, self.paso)
         pos_b = self.get_pos(b.camino, self.paso)
 
-        next_a = self.get_pos(a.camino, self.paso+1)
-        next_b = self.get_pos(b.camino, self.paso+1)
+        next_a = estado_siguiente[0]
+        next_b = estado_siguiente[1]
 
         # -----------------------------------------------------------------------------------------------
         # ERROR: HAY CONFLICTO (por haber mas de 2 agentes)
@@ -110,19 +129,25 @@ class ControladorTrafico:
         # CASO 1: uno llego a la posicion final y molesta al otro   
         # -----------------------------------------------------------------------------------------------
 
-        if pos_a == b.objetivo and pos_b == b.objetivo:
-            print("caso 1")
-            nuevo_inicio = self.agentes[0].camino[self.paso-1]
-            self.agentes[0].set_Inicio(nuevo_inicio)
-            while not self.Mover_Agente(b.objetivo[0], b.objetivo[1], 0):
+        if self.llego_A and next_b == pos_a: # Cambiamos la trayectoria de B
+            print("🚫 B quiere entrar al objetivo ocupado por A")
+
+            x,y = self.agentes[1].camino[self.paso]
+            self.agentes[1].set_Inicio(x,y)
+
+            while not self.Mover_Agente(a.objetivo, 1):
                 pass
 
-        elif pos_b == a.objetivo and pos_a == a.objetivo:
-            print("caso 1")
-            nuevo_inicio = self.agentes[1].camino[self.paso-1]
-            self.agentes[1].set_Inicio(nuevo_inicio)
 
-            while not self.Mover_Agente(a.objetivo[0], a.objetivo[1], 1):
+
+
+        if self.llego_B and next_a == pos_b: # Cambiamos la trayectoria de A
+            print("🚫 A quiere entrar al objetivo ocupado por B")
+
+            x,y = self.agentes[0].camino[self.paso]
+            self.agentes[0].set_Inicio(x,y)
+
+            while not self.Mover_Agente(b.objetivo, 0):
                 pass
 
 
@@ -136,16 +161,26 @@ class ControladorTrafico:
             print("caso 2a")
             # el perdedor retrocede una casilla
             if a == perdedor:
-                camino = self.agentes[0].camino
+                camino = a.camino
 
                 prev = camino[self.paso-1]
                 actual = camino[self.paso]
+                actual_ganador = b.camino[self.paso]
+
+                indx: int = 1
+                while prev == actual or prev == actual_ganador:
+                    indx += 1
+
+                    if indx <= self.paso:
+                        prev = camino[self.paso-indx]
+                    else:
+                        break
 
                 self.agentes[0].camino.insert(self.paso+1, prev)        # retrocede
                 self.agentes[0].camino.insert(self.paso+2, actual)    # vuelve al original
 
             elif b == perdedor:
-                camino = self.agentes[1].camino
+                camino = b.camino
 
                 prev = camino[self.paso-1]
                 actual = camino[self.paso]
@@ -169,44 +204,58 @@ class ControladorTrafico:
                 self.agentes[1].camino.insert(self.paso, self.agentes[1].camino[self.paso])
 
 
-    def Mover_Agente(self, x: int, y:int, indice_agente: int):
+    def Mover_Agente(self, objetivo_bloqueado, indice_agente):
 
-        if (self.agentes[indice_agente].x,self.agentes[indice_agente].y) == self.agentes[indice_agente].objetivo:
+        agente = self.agentes[indice_agente]
 
-            if not self.agentes[indice_agente].camino:
-                self.agentes[indice_agente].reconstruir_camino()
-                return
-            else:
-                return True
+        camino_viejo = agente.camino[:self.paso+1]
 
-        self.agentes[indice_agente].expandir()
-        # Esto elimina de la frontera el nodo que no queremos =============
-        if (x, y) in self.agentes[indice_agente].frontera_dict:
-            # Eliminar del dict
-            del self.agentes[indice_agente].frontera_dict[(x, y)]
-            
-            # Eliminar de la lista y re-organizar heap
-            h = self.agentes[indice_agente].frontera_heap()
-            h[:] = [item for item in h if item[1] != (x, y)]
-            heapq.heapify(h)
-        #===================================================================
+        # reset A*
+        agente.camino = []
+        agente.visitados = {}
+        agente.frontera_heap = []
+        agente.frontera_dict = {}
 
+        agente.set_Inicio(agente.x, agente.y)
 
-        while self.agentes[indice_agente].frontera_heap:
+        while True:
+            agente.expandir()
 
-            _, pos = heapq.heappop(self.agentes[indice_agente].frontera_heap)
+            # 🚫 bloquear celda
+            if objetivo_bloqueado in agente.frontera_dict:
+                del agente.frontera_dict[objetivo_bloqueado]
 
-            if pos not in self.agentes[indice_agente].frontera_dict:
+                agente.frontera_heap = [
+                    item for item in agente.frontera_heap
+                    if item[1] != objetivo_bloqueado
+                ]
+                heapq.heapify(agente.frontera_heap)
+
+            if not agente.frontera_heap:
+                break
+
+            _, pos = heapq.heappop(agente.frontera_heap)
+
+            if pos not in agente.frontera_dict:
                 continue
 
-            nodo = self.agentes[indice_agente].frontera_dict.pop(pos)
+            nodo = agente.frontera_dict.pop(pos)
 
             if not nodo.transitable:
                 continue
 
-            self.agentes[indice_agente].x, self.agentes[indice_agente].y = pos
+            agente.x, agente.y = pos
+            agente.visitados[pos] = nodo
 
-            self.agentes[indice_agente].visitados[pos] = nodo
+            if pos == agente.objetivo:
+                agente.reconstruir_camino()
 
-            return False
-        return True
+                # fusionar caminos
+                nuevo_camino = agente.camino
+
+                # evitar duplicar la posición actual
+                agente.camino = camino_viejo + nuevo_camino[1:]
+
+                return True
+
+        return False

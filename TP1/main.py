@@ -235,6 +235,8 @@ def ejecutar_simulacion_grafica_Ej2() -> None:
     # -------------------------------
 
     simulacion_activa = True
+    paused = False
+    simulaciones: int = 1 # 3 en total
 
     while simulacion_activa:
 
@@ -245,10 +247,57 @@ def ejecutar_simulacion_grafica_Ej2() -> None:
             if evento.type == pygame.QUIT:
                 simulacion_activa = False
 
+            elif evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_SPACE:
+                    paused = not paused
+
+        # POSICIONES INICIALES
+        if (controlador.paso >= len(controlador.agentes[0].camino) + 2
+            and controlador.paso >= len(controlador.agentes[1].camino) + 2
+            and controlador.paso != 0):
+            
+            simulaciones += 1 
+
+            motor_grafico.limpiar_colores_dinamicos()
+            controlador.paso = 0
+            controlador.llego_A = False
+            controlador.llego_B = False
+
+            controlador.agentes[0].camino = []
+            controlador.agentes[0].visitados = {}
+            controlador.agentes[0].frontera_heap = []
+            controlador.agentes[0].frontera_dict = {}
+
+            controlador.agentes[1].camino = []
+            controlador.agentes[1].visitados = {}
+            controlador.agentes[1].frontera_heap = []
+            controlador.agentes[1].frontera_dict = {}
+
+            if simulaciones == 2:
+                print("Caso nuevo!!")
+                controlador.agentes[0].set_Inicio(1, 6)
+                controlador.agentes[0].set_objetivo(6, 9)
+
+                controlador.agentes[1].set_Inicio(5, 3)
+                controlador.agentes[1].set_objetivo(6, 10)
+
+            elif simulaciones == 3:
+                print("Caso nuevo!!")
+                controlador.agentes[0].set_Inicio(1, 6)
+                controlador.agentes[0].set_objetivo(5, 10)
+
+                controlador.agentes[1].set_Inicio(5, 2)
+                controlador.agentes[1].set_objetivo(5, 9)
+            
+            else:
+                break
+
         # -------------------------------
         # STEP DINÁMICO
-        # -------------------------------
-        controlador.Step()
+        # -----------------------------
+
+        if not paused:
+            controlador.Step()
 
         # -------------------------------
         # DIBUJAR CAMINOS (HISTORIAL)
@@ -259,7 +308,7 @@ def ejecutar_simulacion_grafica_Ej2() -> None:
 
             for paso in range(limite):
 
-                x, y = agente.camino[paso]
+                x, y = agente.camino[paso-1]
 
                 if i == 0:
                     color = (255, 165, 0)  # 🟠 naranja
@@ -274,7 +323,7 @@ def ejecutar_simulacion_grafica_Ej2() -> None:
         for i, agente in enumerate(controlador.agentes):
 
             if controlador.paso < len(agente.camino):
-                x, y = agente.camino[controlador.paso]
+                x, y = agente.camino[controlador.paso-1]
             else:
                 x, y = agente.camino[-1]
 
@@ -296,7 +345,9 @@ def ejecutar_simulacion_grafica_Ej2() -> None:
 
 if __name__ == "__main__":
     # Punto de entrada estricto del script
+
     if sys.argv[1] == "1":
         ejecutar_simulacion_grafica()
+
     elif sys.argv[1] == "2":
         ejecutar_simulacion_grafica_Ej2()

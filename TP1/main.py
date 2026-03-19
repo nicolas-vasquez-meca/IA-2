@@ -9,6 +9,7 @@ from entorno.pared import Pared
 from entorno.estanteria import Estanteria, Direccion
 from entorno.mapa import Mapa
 from visualizacion.renderizador import RenderizadorPygame
+from Ejercicio_2_Entorno_DInámico.Controlador_Trafico_Nuevo import ControladorTrafico
 
 def construir_bloque_estanterias(entorno: Mapa, x_origen: int, y_origen: int, id_inicial: int) -> None:
     """
@@ -203,6 +204,150 @@ def ejecutar_simulacion_grafica() -> None:
     pygame.quit()
     sys.exit()
 
+def ejecutar_simulacion_grafica_Ej2() -> None:
+
+    import pygame
+    import sys
+
+    # 1. Mapa
+    mapa_generado = inicializar_simulacion()
+
+    # 2. Motor gráfico
+    motor_grafico = RenderizadorPygame(mapa_generado, tamano_celda=40)
+    clock = pygame.time.Clock()
+
+    # 3. Crear agentes
+    agente1 = Agente(mapa_generado)
+    agente2 = Agente(mapa_generado)
+
+    # POSICIONES INICIALES
+    agente1.set_Inicio(1, 6)
+    agente1.set_objetivo(9, 9)
+
+    agente2.set_Inicio(13, 6)
+    agente2.set_objetivo(5, 9)
+
+    # 4. Controlador de tráfico
+    controlador = ControladorTrafico([agente1, agente2])
+
+    # -------------------------------
+    # LOOP PRINCIPAL
+    # -------------------------------
+
+    simulacion_activa = True
+    paused = False
+    simulaciones: int = 1 # 3 en total
+
+    while simulacion_activa:
+
+        # -------------------------------
+        # EVENTOS
+        # -------------------------------
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                simulacion_activa = False
+
+            elif evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_SPACE:
+                    paused = not paused
+
+        # POSICIONES INICIALES
+        if (controlador.paso >= len(controlador.agentes[0].camino) + 2
+            and controlador.paso >= len(controlador.agentes[1].camino) + 2
+            and controlador.paso != 0):
+            
+            simulaciones += 1 
+
+            motor_grafico.limpiar_colores_dinamicos()
+            controlador.paso = 0
+            controlador.llego_A = False
+            controlador.llego_B = False
+
+            controlador.agentes[0].camino = []
+            controlador.agentes[0].visitados = {}
+            controlador.agentes[0].frontera_heap = []
+            controlador.agentes[0].frontera_dict = {}
+
+            controlador.agentes[1].camino = []
+            controlador.agentes[1].visitados = {}
+            controlador.agentes[1].frontera_heap = []
+            controlador.agentes[1].frontera_dict = {}
+
+            if simulaciones == 2:
+                print("Caso nuevo!!")
+                controlador.agentes[0].set_Inicio(1, 6)
+                controlador.agentes[0].set_objetivo(6, 9)
+
+                controlador.agentes[1].set_Inicio(5, 3)
+                controlador.agentes[1].set_objetivo(6, 10)
+
+            elif simulaciones == 3:
+                print("Caso nuevo!!")
+                controlador.agentes[0].set_Inicio(1, 6)
+                controlador.agentes[0].set_objetivo(5, 10)
+
+                controlador.agentes[1].set_Inicio(5, 2)
+                controlador.agentes[1].set_objetivo(5, 9)
+            
+            else:
+                break
+
+        # -------------------------------
+        # STEP DINÁMICO
+        # -----------------------------
+
+        if not paused:
+            controlador.Step()
+
+        # -------------------------------
+        # DIBUJAR CAMINOS (HISTORIAL)
+        # -------------------------------
+        for i, agente in enumerate(controlador.agentes):
+
+            limite = min(controlador.paso, len(agente.camino))
+
+            for paso in range(limite):
+
+                x, y = agente.camino[paso-1]
+
+                if i == 0:
+                    color = (255, 165, 0)  # 🟠 naranja
+                else:
+                    color = (100, 200, 255)  # 🔵 celeste
+
+                motor_grafico.establecer_color_casilla(x, y, color)
+
+        # -------------------------------
+        # DIBUJAR POSICIÓN ACTUAL
+        # -------------------------------
+        for i, agente in enumerate(controlador.agentes):
+
+            if controlador.paso < len(agente.camino):
+                x, y = agente.camino[controlador.paso-1]
+            else:
+                x, y = agente.camino[-1]
+
+            if i == 0:
+                color = (255, 0, 0)  # 🔴 rojo
+            else:
+                color = (0, 0, 255)  # 🔵 azul
+
+            motor_grafico.establecer_color_casilla(x, y, color)
+
+        # -------------------------------
+        # RENDER
+        # -------------------------------
+        motor_grafico.actualizar()
+        clock.tick(2)  # velocidad de la simulación
+
+    pygame.quit()
+    sys.exit()
+
 if __name__ == "__main__":
     # Punto de entrada estricto del script
-    ejecutar_simulacion_grafica()
+
+    if sys.argv[1] == "1":
+        ejecutar_simulacion_grafica()
+
+    elif sys.argv[1] == "2":
+        ejecutar_simulacion_grafica_Ej2()

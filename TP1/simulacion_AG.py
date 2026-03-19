@@ -173,7 +173,7 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
     # 3.3 Configuración del Optimizador
     config = ConfiguracionAG(
         tamano_poblacion=150,
-        tasa_mutacion=0.05,
+        tasa_mutacion=0.2,
         tasa_cruce=0.9,
         limite_iteraciones=200,
         tolerancia_convergencia=30,
@@ -239,6 +239,16 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
     # 4. Simulación visual de la última orden procesada para cerrar
     print("\nLanzando visualizacion del mapa optimizado...")
     motor_grafico = RenderizadorDinamico(mapa_simulacion=mapa_optimizado, tamano_celda=45)
+   
+    # 4.1 Mostrar Mapa de Calor (Evidencia de Optimización de Layout)
+    from collections import Counter
+    from itertools import chain
+    frecuencias_totales = dict(Counter(chain.from_iterable(todas_las_ordenes)))
+    
+    print("\nGenerando Mapa de Calor de Demanda...")
+    motor_grafico.mostrar_mapa_calor(frecuencias_totales)
+
+    print("Lanzando trayectoria del robot en mapa optimizado")
     motor_grafico.reproducir_trayectoria(
         recorrido=resultado.recorrido_completo,
         ids_orden=muestras_test[-1],

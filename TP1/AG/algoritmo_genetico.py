@@ -62,15 +62,18 @@ class AlgoritmoGenetico:
         """
         costo_total = 0.0
 
+        peso_posicion_absoluta = 1.0    #<MODIFICABLE
+
         # Evaluación lineal para la estación de carga (Optimización Global)
         for i in range(self.dimension_estantes):
             estante = cromosoma[i]
             coord_estante = self.coordenadas_ids[i]
             
             # Trayecto: Estación -> Estante
-            costo_total += (self.matriz_transicion[0, estante] * self.matriz_distancias[self.coord_base, coord_estante])
-            # Trayecto: Estante -> Estación
-            costo_total += (self.matriz_transicion[estante, 0] * self.matriz_distancias[coord_estante, self.coord_base])
+            costo_base = (self.matriz_transicion[0, estante] * self.matriz_distancias[self.coord_base, coord_estante])
+            costo_retorno = (self.matriz_transicion[estante, 0] * self.matriz_distancias[coord_estante, self.coord_base])
+            
+            costo_total += (costo_base + costo_retorno) * peso_posicion_absoluta
 
             # Evaluación cruzada entre estantes (Optimización Local)
             for j in range(self.dimension_estantes):

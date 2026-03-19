@@ -1,8 +1,10 @@
 import sys
+import time
+from statistics import mean
 import numpy as np
 from pathlib import Path
 from typing import List, Optional
-
+import random
 from Agentes.Agente import Agente
 from entorno.camino import Camino
 from entorno.pared import Pared
@@ -125,53 +127,56 @@ def extraer_matriz_distancias(mapa: Mapa, coord_base: tuple) -> np.ndarray:
 
 
 # ORQUESTADOR MAESTRO
-def ejecutar_pipeline_completo() -> None:
+def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
     """Ejecuta la secuencia matemática de diseño, optimización y simulación."""
 
     coordenada_base = (1, 6)
-    ruta_ordenes = Path(__file__).parent / "ordenes.csv"
-    secuencias_historicas = SimulatedAnnealingPicking.cargar_ordenes_desde_csv(ruta_ordenes)
-    orden_test = secuencias_historicas[5]
+    ruta_csv = Path(__file__).parent / "ordenes.csv"
+
+    # Cargar todas las ordenes disponibles
+    todas_las_ordenes = SimulatedAnnealingPicking.cargar_ordenes_desde_csv(ruta_csv)
+    
+    # Seleccionar N muestras aleatorias
+    if len(todas_las_ordenes) < n_muestras:
+        n_muestras = len(todas_las_ordenes)
+    muestras_test = random.sample(todas_las_ordenes, n_muestras)
+
+    print(f"\n>>> EJECUTANDO BENCHMARK INICIAL ({n_muestras} ordenes)...")
+    mapa_inicial = inicializar_simulacion() # Mapa 1-48
+    
+    costos_antes = []
+    tiempos_sa_antes = []
 
     print("\n=== ESCENARIO 1: DISPOSICION SECUENCIAL (ANTES) ===")
     mapa_inicial = inicializar_simulacion()
 
-    solver_sa_inicial = SimulatedAnnealingPicking(
+    solver_sa = SimulatedAnnealingPicking(
         mapa=mapa_inicial,
         inicio=coordenada_base,
         max_iteraciones=3000,
         volver_al_origen=True
     )
 
-    print(f"Calculando ruta para la orden: {orden_test}...")
-    res_inicial = solver_sa_inicial.resolver(orden_test)
-    print(f" COSTO INICIAL: {res_inicial.mejor_costo} unidades de distancia.")
+    for i, orden in enumerate(muestras_test):
+        inicio_sa = time.time()
+        resultado = solver_sa.resolver(orden)
+        fin_sa = time.time()
+        
+        costos_antes.append(resultado.mejor_costo)
+        tiempos_sa_antes.append(fin_sa - inicio_sa)
+        print(f"  Orden {i+1}/{n_muestras} procesada.", end="\r")
 
-    # Renderizar el recorrido inicial
-    print("Mostrando simulacion inicial...")
-    motor_grafico_v1 = RenderizadorDinamico(mapa_simulacion=mapa_inicial, tamano_celda=45)
-    motor_grafico_v1.reproducir_trayectoria(
-        recorrido=res_inicial.recorrido_completo,
-        ids_orden=orden_test,
-        fps=15
-    )
-
-    print("\n=== FASE DE OPTIMIZACION: ALGORITMO GENETICO ===")
-    print("1. Calculando matriz de distancias A*...")
+    print("\n\n>>> EJECUTANDO ALGORITMO GENETICO (Optimizacion de Layout)...")
     matriz_distancias = extraer_matriz_distancias(mapa_inicial, coord_base=coordenada_base)
-
-    print("2. Generando matriz de transicion desde historico...")
-    matriz_transicion = ProcesadorDemanda.generar_matriz_transicion(secuencias_historicas)
-
-    print("3. Ejecutando AG para encontrar la mejor disposicion de estanterias...")
+    matriz_transicion = ProcesadorDemanda.generar_matriz_transicion(todas_las_ordenes)
 
     # 3.3 Configuración del Optimizador
     config = ConfiguracionAG(
         tamano_poblacion=150,
-        tasa_mutacion=0.1,
+        tasa_mutacion=0.05,
         tasa_cruce=0.9,
         limite_iteraciones=200,
-        tolerancia_convergencia=60,
+        tolerancia_convergencia=30,
         tamano_torneo=7
     )
     
@@ -184,41 +189,62 @@ def ejecutar_pipeline_completo() -> None:
         configuracion=config
     )
     
+    start_ag = time.time()
     optimizador.ejecutar()
     cromosoma_ganador, _, _ = optimizador.evaluacion()
+    end_ag = time.time()
     
-    print("\n=== ESCENARIO 2: DISPOSICION OPTIMIZADA (DESPUES) ===")
+    tiempo_total_ag = end_ag - start_ag
+
+    # ---------------------------------------------------------
+    # FASE 3: BENCHMARK FINAL (Mapa Optimizado)
+    # ---------------------------------------------------------
+    print(f"\n>>> EJECUTANDO BENCHMARK POST-OPTIMIZACION ({n_muestras} ordenes)...")
     mapa_optimizado = inicializar_simulacion(cromosoma_optimo=cromosoma_ganador)
-
-    from collections import Counter
-    from itertools import chain
-    # Se calcula la frecuencia absoluta de todos los pedidos históricos
-    frecuencias = dict(Counter(chain.from_iterable(secuencias_historicas)))
     
-    print("Mostrando Mapa de Calor (Distribucion de Demanda)...")
-    motor_grafico_v2 = RenderizadorDinamico(mapa_simulacion=mapa_optimizado, tamano_celda=45)
-    motor_grafico_v2.mostrar_mapa_calor(frecuencias)
-
-    # Calcular nueva ruta con el mismo pedido
-    solver_sa_final = SimulatedAnnealingPicking(
-        mapa=mapa_optimizado,
-        inicio=coordenada_base,
-        max_iteraciones=3000,
-        volver_al_origen=True
-    )
-    res_final = solver_sa_final.resolver(orden_test)
+    costos_despues = []
+    tiempos_sa_despues = []
     
-    print(f"NUEVO COSTO OPTIMIZADO: {res_final.mejor_costo}")
-    ahorro = ((res_inicial.mejor_costo - res_final.mejor_costo) / res_inicial.mejor_costo) * 100
-    print(f"MEJORA DEL {ahorro:.2f}% EN LA EFICIENCIA DE RECOLECCION")
+    solver_sa_opt = SimulatedAnnealingPicking(mapa=mapa_optimizado, inicio=coordenada_base, volver_al_origen=True)
 
-    # Renderizar el recorrido final
-    print("Mostrando simulacion optimizada...")
-    motor_grafico_v2.reproducir_trayectoria(
-        recorrido=res_final.recorrido_completo,
-        ids_orden=orden_test,
+    for i, orden in enumerate(muestras_test):
+        inicio_sa = time.time()
+        resultado = solver_sa_opt.resolver(orden)
+        fin_sa = time.time()
+        
+        costos_despues.append(resultado.mejor_costo)
+        tiempos_sa_despues.append(fin_sa - inicio_sa)
+        print(f"  Orden {i+1}/{n_muestras} procesada.", end="\r")
+
+    # ---------------------------------------------------------
+    # RESULTADOS Y MÉTRICAS
+    # ---------------------------------------------------------
+    promedio_antes = mean(costos_antes)
+    promedio_despues = mean(costos_despues)
+    mejora_porcentual = ((promedio_antes - promedio_despues) / promedio_antes) * 100
+    
+    tiempo_promedio_sa = mean(tiempos_sa_antes + tiempos_sa_despues)
+
+    print("\n" + "="*50)
+    print("RESUMEN DE RESULTADOS")
+    print("="*50)
+    print(f"Tiempo ejecucion Algoritmo Genetico: {tiempo_total_ag:.4f} seg")
+    print(f"Tiempo promedio de ruteo (SA) por orden: {tiempo_promedio_sa:.4f} seg")
+    print("-" * 50)
+    print(f"Costo promedio ANTES: {promedio_antes:.2f}")
+    print(f"Costo promedio DESPUES: {promedio_despues:.2f}")
+    print(f"MEJORA PROMEDIO TOTAL: {mejora_porcentual:.2f}%")
+    print("="*50)
+
+    # 4. Simulación visual de la última orden procesada para cerrar
+    print("\nLanzando visualizacion del mapa optimizado...")
+    motor_grafico = RenderizadorDinamico(mapa_simulacion=mapa_optimizado, tamano_celda=45)
+    motor_grafico.reproducir_trayectoria(
+        recorrido=resultado.recorrido_completo,
+        ids_orden=muestras_test[-1],
         fps=15
     )
 
 if __name__ == "__main__":
-    ejecutar_pipeline_completo()
+    # Puedes cambiar el número de muestras aquí rápidamente
+    ejecutar_pipeline_completo(n_muestras=20)

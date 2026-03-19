@@ -1,5 +1,6 @@
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Iterable
 from entorno.casilla import Casilla
+
 
 class Mapa:
     """
@@ -67,3 +68,19 @@ class Mapa:
     def largo(self) -> int:
         """Permite consultar el límite vertical del mapa."""
         return self._largo
+    
+    @property
+    def elementos(self) -> Iterable['Casilla']:
+        """
+        Iterador global del mapa.
+        Recorre la cuadrícula bidimensional y retorna secuencialmente todas 
+        las entidades físicas válidas (Paredes, Caminos, Estanterías).
+        
+        Implementado como un generador (yield) para no duplicar el uso 
+        de la memoria RAM construyendo listas temporales.
+        """
+        for x in range(self._ancho):
+            for y in range(self._largo):
+                entidad = self._cuadricula[x][y]
+                if entidad is not None:
+                    yield entidad

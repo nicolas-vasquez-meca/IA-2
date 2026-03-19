@@ -35,10 +35,22 @@ class ObjetoEspecial(Casilla):
     @property
     def costo(self) -> float:
         return float('inf')
+
+    @property
+    def puntos_acceso(self) -> List[Tuple[int, int]]:
+        return self._puntos_acceso
     
     @property
     def identificador(self) -> int:
         return self._identificador
+    
+    @identificador.setter
+    def identificado(self, nuevo_identificador: int) -> None:
+        """
+        Permite al Algoritmo Genetico asignar un nuevo producto a esta
+        coordenada fisica sin necesidad de destruir el objeto en memoria.
+        """
+        self._identificador = nuevo_identificador
 
     def validar_acceso(self, x_agente: int, y_agente: int) -> bool:
         """Verifica si el agente se encuentra en una zona de interacción válida."""

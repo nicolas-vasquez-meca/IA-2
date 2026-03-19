@@ -127,35 +127,54 @@ def extraer_matriz_distancias(mapa: Mapa, coord_base: tuple) -> np.ndarray:
 # ORQUESTADOR MAESTRO
 def ejecutar_pipeline_completo() -> None:
     """Ejecuta la secuencia matemática de diseño, optimización y simulación."""
-    
-    print("\n[FASE 1] Extrayendo Topología Estructural del Mapa...")
-    mapa_base = inicializar_simulacion()
-    coordenada_base = (1, 6) # Definido por los requerimientos del Temple Simulado
 
-    print("[FASE 2] Pre-calculando Matriz de Distancias (A*)...")
-    print("         (Esta operación de indexación espacial puede tardar unos segundos)")
-    matriz_distancias = extraer_matriz_distancias(mapa_base, coord_base=coordenada_base)
-
-    print("\n[FASE 3] Evaluando Histórico y Ejecutando Algoritmo Genético...")
-    # 3.1 Carga de archivo CSV (Ajustar ruta según corresponda)
+    coordenada_base = (1, 6)
     ruta_ordenes = Path(__file__).parent / "ordenes.csv"
     secuencias_historicas = SimulatedAnnealingPicking.cargar_ordenes_desde_csv(ruta_ordenes)
-    
-    # 3.2 Generación de Matriz de Transición
+    orden_test = secuencias_historicas[5]
+
+    print("\n=== ESCENARIO 1: DISPOSICION SECUENCIAL (ANTES) ===")
+    mapa_inicial = inicializar_simulacion()
+
+    solver_sa_inicial = SimulatedAnnealingPicking(
+        mapa=mapa_inicial,
+        inicio=coordenada_base,
+        max_iteraciones=3000,
+        volver_al_origen=True
+    )
+
+    print(f"Calculando ruta para la orden: {orden_test}...")
+    res_inicial = solver_sa_inicial.resolver(orden_test)
+    print(f" COSTO INICIAL: {res_inicial.mejor_costo} unidades de distancia.")
+
+    # Renderizar el recorrido inicial
+    print("Mostrando simulacion inicial...")
+    motor_grafico_v1 = RenderizadorDinamico(mapa_simulacion=mapa_inicial, tamano_celda=45)
+    motor_grafico_v1.reproducir_trayectoria(
+        recorrido=res_inicial.recorrido_completo,
+        ids_orden=orden_test,
+        fps=15
+    )
+
+    print("\n=== FASE DE OPTIMIZACION: ALGORITMO GENETICO ===")
+    print("1. Calculando matriz de distancias A*...")
+    matriz_distancias = extraer_matriz_distancias(mapa_inicial, coord_base=coordenada_base)
+
+    print("2. Generando matriz de transicion desde historico...")
     matriz_transicion = ProcesadorDemanda.generar_matriz_transicion(secuencias_historicas)
-    
+
+    print("3. Ejecutando AG para encontrar la mejor disposicion de estanterias...")
+
     # 3.3 Configuración del Optimizador
     config = ConfiguracionAG(
-        tamano_poblacion=100,
+        tamano_poblacion=150,
         tasa_mutacion=0.1,
-        tasa_cruce=0.85,
+        tasa_cruce=0.9,
         limite_iteraciones=200,
-        tolerancia_convergencia=40,
-        tamano_torneo=5
+        tolerancia_convergencia=60,
+        tamano_torneo=7
     )
     
-    # Los estantes disponibles son los IDs del 1 al 48.
-    # Las coordenadas (índices en la matriz de distancias) también son del 1 al 48.
     optimizador = AlgoritmoGenetico(
         matriz_transicion=matriz_transicion,
         matriz_distancias=matriz_distancias,
@@ -166,49 +185,39 @@ def ejecutar_pipeline_completo() -> None:
     )
     
     optimizador.ejecutar()
-    cromosoma_ganador, aptitud, estado = optimizador.evaluacion()
+    cromosoma_ganador, _, _ = optimizador.evaluacion()
     
-    print(f"         Convergencia Genética: {estado}")
-    print(f"         Mejor Disposición Encontrada:\n         {cromosoma_ganador}")
-
-    print("\n[FASE 4] Inyectando Genética y Reconstruyendo el Mapa...")
-    # Se destruye el mapa secuencial y se crea uno optimizado
+    print("\n=== ESCENARIO 2: DISPOSICION OPTIMIZADA (DESPUES) ===")
     mapa_optimizado = inicializar_simulacion(cromosoma_optimo=cromosoma_ganador)
 
     from collections import Counter
     from itertools import chain
     # Se calcula la frecuencia absoluta de todos los pedidos históricos
-    frecuencias_absolutas = dict(Counter(chain.from_iterable(secuencias_historicas)))
+    frecuencias = dict(Counter(chain.from_iterable(secuencias_historicas)))
     
-    motor_grafico = RenderizadorDinamico(mapa_simulacion=mapa_optimizado, tamano_celda=45)
-    motor_grafico.mostrar_mapa_calor(frecuencias_absolutas)
-    
-    print("\n[FASE 5] Ejecutando Temple Simulado (Micro-Enrutamiento) y Renderizando...")
-    # Llamamos a la función de su compañero utilizando el entorno modificado
-    # Nota: Es necesario adaptar levemente ejecutar_desde_csv en su archivo 
-    # para que acepte un mapa ya instanciado en lugar de crearlo internamente.
-    
-    motor_sa = SimulatedAnnealingPicking(
+    print("Mostrando Mapa de Calor (Distribucion de Demanda)...")
+    motor_grafico_v2 = RenderizadorDinamico(mapa_simulacion=mapa_optimizado, tamano_celda=45)
+    motor_grafico_v2.mostrar_mapa_calor(frecuencias)
+
+    # Calcular nueva ruta con el mismo pedido
+    solver_sa_final = SimulatedAnnealingPicking(
         mapa=mapa_optimizado,
         inicio=coordenada_base,
-        temperatura_inicial=100.0,
-        factor_enfriamiento=0.995,
-        temperatura_minima=0.001,
-        max_iteraciones=3000
+        max_iteraciones=3000,
+        volver_al_origen=True
     )
+    res_final = solver_sa_final.resolver(orden_test)
+    
+    print(f"NUEVO COSTO OPTIMIZADO: {res_final.mejor_costo}")
+    ahorro = ((res_inicial.mejor_costo - res_final.mejor_costo) / res_inicial.mejor_costo) * 100
+    print(f"MEJORA DEL {ahorro:.2f}% EN LA EFICIENCIA DE RECOLECCION")
 
-    # Seleccionamos una orden del histórico para simular su recolección
-    orden_objetivo = secuencias_historicas[0]
-    resultado_sa = motor_sa.resolver(orden_objetivo)
-    print(f"         Ruta calculada. Costo de recolección: {resultado_sa.mejor_costo}")
-
-    print("\n[FASE 6] Desplegando Motor de Renderizado Dinámico...")
-    # Se inyecta la ruta matemática pura en el motor gráfico
-    motor_grafico = RenderizadorDinamico(mapa_simulacion=mapa_optimizado, tamano_celda=45)
-    motor_grafico.reproducir_trayectoria(
-        recorrido=resultado_sa.recorrido_completo,
-        ids_orden=orden_objetivo,
-        fps=12
+    # Renderizar el recorrido final
+    print("Mostrando simulacion optimizada...")
+    motor_grafico_v2.reproducir_trayectoria(
+        recorrido=res_final.recorrido_completo,
+        ids_orden=orden_test,
+        fps=15
     )
 
 if __name__ == "__main__":

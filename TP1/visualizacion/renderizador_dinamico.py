@@ -156,8 +156,6 @@ class RenderizadorDinamico:
                 for p in elemento.puntos_acceso:
                     accesos_map[p] = elemento.identificador
 
-        estantes_completados = set()
-
         while ejecutando:
             for evento in pygame.event.get():
                 if evento.type == pygame.QUIT:
@@ -176,15 +174,12 @@ class RenderizadorDinamico:
             # Actualización del estado lógico
             pos_actual = recorrido[indice_actual]
             
-            # Verificación de recolección: si la posición actual es un punto de acceso de una orden
-            if pos_actual in accesos_map:
-                id_detectado = accesos_map[pos_actual]
-                if id_detectado in ids_orden:
-                    # Lógica retroactiva: Si avanzamos o retrocedemos manualmente, recalcular completados
-                    estantes_completados = set()
-                    for pos in recorrido[:indice_actual + 1]:
-                        if pos in accesos_map and accesos_map[pos] in ids_orden:
-                            estantes_completados.add(accesos_map[pos])
+            # CORRECCIÓN LÓGICA: El recálculo debe ser absoluto en cada frame para 
+            # soportar el retroceso (scrubbing) hacia coordenadas transitables comunes.
+            estantes_completados = set()
+            for pos in recorrido[:indice_actual + 1]:
+                if pos in accesos_map and accesos_map[pos] in ids_orden:
+                    estantes_completados.add(accesos_map[pos])
 
             # Construcción del texto de estado
             estado_str = "[PAUSADO] Use flechas para mover" if pausado else "[REPRODUCIENDO] ESPACIO para pausar"
@@ -211,19 +206,22 @@ class RenderizadorDinamico:
         Renderiza una representación estática del mapa donde la intensidad 
         cromática de cada estantería es directamente proporcional a su demanda histórica.
         """
+        # DEFENSA: Verificación y restauración del contexto gráfico SDL
+        if not pygame.display.get_init() or pygame.display.get_surface() is None:
+            pygame.init()
+            self._pantalla = pygame.display.set_mode((self._ancho_pantalla, self._alto_pantalla))
+            pygame.display.set_caption("Simulador Logístico - Mapa de Calor")
+
         self._pantalla.fill(self.C_FONDO)
-        
-        # 1. Extracción de límites para la normalización matemática
+
+        # 1. Extracción de límites (Anclaje absoluto a 0 para el límite inferior)
         valores_frecuencia = list(frecuencias_absolutas.values())
         frecuencia_maxima = max(valores_frecuencia) if valores_frecuencia else 1
-        frecuencia_minima = min(valores_frecuencia) if valores_frecuencia else 0
+        frecuencia_minima = 0  
         rango_frecuencia = frecuencia_maxima - frecuencia_minima
         if rango_frecuencia == 0:
-            rango_frecuencia = 1 # Prevención de división por cero
+            rango_frecuencia = 1 
             
-        # 2. Definición del espectro cromático (Gradiente térmico)
-        # Color Frío (Baja demanda): Azul claro - RGB(200, 220, 255)
-        # Color Caliente (Alta demanda): Rojo oscuro - RGB(220, 20, 20)
         color_frio = (200, 220, 255)
         color_caliente = (220, 20, 20)
 
@@ -240,11 +238,10 @@ class RenderizadorDinamico:
                     pygame.draw.rect(self._pantalla, self.C_CAMINO, rectangulo)
 
                 elif isinstance(entidad, Estanteria):
-                    # Extracción y normalización de la demanda
                     visitas = frecuencias_absolutas.get(entidad.identificador, 0)
                     coeficiente = (visitas - frecuencia_minima) / rango_frecuencia
                     
-                    # Interpolación lineal de canales RGB
+                    # Interpolación lineal del espectro cromático
                     rojo = int(color_frio[0] + (color_caliente[0] - color_frio[0]) * coeficiente)
                     verde = int(color_frio[1] + (color_caliente[1] - color_frio[1]) * coeficiente)
                     azul = int(color_frio[2] + (color_caliente[2] - color_frio[2]) * coeficiente)
@@ -254,11 +251,13 @@ class RenderizadorDinamico:
                     pygame.draw.rect(self._pantalla, color_interpolado, rectangulo)
                     pygame.draw.rect(self._pantalla, self.C_PARED, rectangulo, 2)
                     
-                    # Renderizado del identificador
-                    texto = self._fuente_estantes.render(str(entidad.identificador), True, self.C_TEXTO)
-                    self._pantalla.blit(texto, texto.get_rect(center=rectangulo.center))
+                    # Etiqueta de Producto (ID) centrada con contraste dinámico
+                    color_texto = (255, 255, 255) if coeficiente > 0.5 else self.C_TEXTO
+                    texto_id = self._fuente_estantes.render(str(entidad.identificador), True, color_texto)
+                    rect_id = texto_id.get_rect(center=rectangulo.center)
+                    self._pantalla.blit(texto_id, rect_id)
                     
-                    # Indicadores de acceso
+                    # Indicadores vectoriales de acceso
                     if entidad.validar_acceso(x, y - 1): self._dibujar_triangulo_acceso(x, y, "ARRIBA")
                     if entidad.validar_acceso(x, y + 1): self._dibujar_triangulo_acceso(x, y, "ABAJO")
                     if entidad.validar_acceso(x - 1, y): self._dibujar_triangulo_acceso(x, y, "IZQUIERDA")
@@ -272,18 +271,20 @@ class RenderizadorDinamico:
         pygame.draw.rect(self._pantalla, self.C_PANEL, rect_panel)
         pygame.draw.line(self._pantalla, self.C_PARED, (0, y_panel), (self._ancho_pantalla, y_panel), 3)
         
-        instrucciones = "[MAPA DE CALOR] Análisis de Agrupamiento. Presione ESPACIO para continuar a la simulación."
+        instrucciones = "[MAPA DE CALOR] Topología Final. Presione ESPACIO para iniciar la simulación dinámica."
         superficie_texto = self._fuente_panel.render(instrucciones, True, self.C_TEXTO)
         self._pantalla.blit(superficie_texto, (15, y_panel + 30))
 
         pygame.display.flip()
 
-        # 5. Bucle de retención (Pausa el programa hasta que el usuario decida avanzar)
+        # 5. Bucle de retención del estado de la ventana
         esperando = True
         while esperando:
             for evento in pygame.event.get():
                 if evento.type == pygame.QUIT:
+                    import sys
                     pygame.quit()
                     sys.exit()
                 elif evento.type == pygame.KEYDOWN and evento.key == pygame.K_SPACE:
                     esperando = False
+                    # CORRECCIÓN: Se elimina pygame.quit() para permitir la transición fluida a la simulación dinámica.

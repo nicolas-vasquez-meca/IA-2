@@ -11,11 +11,11 @@ from entorno.pared import Pared
 from entorno.estanteria import Estanteria, Direccion
 from entorno.mapa import Mapa
 
-
 from AG.procesador_demanda import ProcesadorDemanda
 from AG.algoritmo_genetico import AlgoritmoGenetico, ConfiguracionAG
 from temple.temple import SimulatedAnnealingPicking
 from visualizacion.renderizador_dinamico import RenderizadorDinamico
+from visualizacion.analizador import AnalizadorMetricas
 
 # CONSTRUCCION DEL ENTORNO
 def construir_bloque_estanterias(entorno: Mapa, x_origen: int, y_origen: int, asignacion_ids: List[int]) -> None:
@@ -79,7 +79,6 @@ def inicializar_simulacion(cromosoma_optimo: Optional[List[int]] = None) -> Mapa
     return entorno_simulacion
 
 
-# HERRAMIENTAS DE PRECALCULO
 def calcular_distancia_astar(mapa: Mapa, origen: tuple, destino: tuple) -> float:
     """Calcula el costo real de tránsito entre dos coordenadas usando A*."""
     if origen == destino:
@@ -100,6 +99,7 @@ def calcular_distancia_astar(mapa: Mapa, origen: tuple, destino: tuple) -> float
     if not agente.camino:
         return float('inf')
     return agente.visitados[(agente.x, agente.y)].g
+
 
 def extraer_matriz_distancias(mapa: Mapa, coord_base: tuple) -> np.ndarray:
     """
@@ -148,7 +148,6 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
     tiempos_sa_antes = []
 
     print("\n=== ESCENARIO 1: DISPOSICION SECUENCIAL (ANTES) ===")
-    mapa_inicial = inicializar_simulacion()
 
     solver_sa = SimulatedAnnealingPicking(
         mapa=mapa_inicial,
@@ -157,6 +156,7 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
         volver_al_origen=True
     )
 
+    # Procesa las Ordenes
     for i, orden in enumerate(muestras_test):
         inicio_sa = time.time()
         resultado = solver_sa.resolver(orden)
@@ -176,8 +176,11 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
         tasa_mutacion=0.2,
         tasa_cruce=0.9,
         limite_iteraciones=200,
-        tolerancia_convergencia=30,
-        tamano_torneo=7
+        tolerancia_convergencia=100,
+        tamano_torneo=7,
+        metodo_evaluacion='sa',  # Alternar a 'sa' para usar Recocido Simulado en la evaluación
+        muestras_sa=15,              # Solo utilizado si metodo_evaluacion='sa'
+        iteraciones_sa_interno=50    # Solo utilizado si metodo_evaluacion='sa'
     )
     
     optimizador = AlgoritmoGenetico(
@@ -186,7 +189,8 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
         estantes_ids=list(range(1, 49)),
         coordenadas_ids=list(range(1, 49)),
         coord_base=0,
-        configuracion=config
+        configuracion=config,
+        historico_ordenes=todas_las_ordenes
     )
     
     start_ag = time.time()
@@ -194,7 +198,37 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
     cromosoma_ganador, _, _ = optimizador.evaluacion()
     end_ag = time.time()
     
+
+    # SANITIZACION DEL CROMOSOMA
+    # 1. Si vino como un array de NumPy, lo forzamos a lista de Python estándar
+    if isinstance(cromosoma_ganador, np.ndarray):
+        cromosoma_ganador = cromosoma_ganador.tolist()
+        
+    # 2. Si el algoritmo genético arrastró el nodo base (0) en la permutación, lo sacamos
+    if 0 in cromosoma_ganador:
+        cromosoma_ganador.remove(0)
+        
+    # 3. Print de control para verificar
+    print(f"DEBUG - Longitud del cromosoma depurado: {len(cromosoma_ganador)}")
+    if len(cromosoma_ganador) != 48:
+        print(f"CRÍTICO - El contenido del cromosoma es: {cromosoma_ganador}")
+    # ---------------------------------------------------------
+
     tiempo_total_ag = end_ag - start_ag
+
+    # ---------------------------------------------------------
+    # --- MODIFICACIÓN: RENDERIZADO DEL GRÁFICO DE COSTO ---
+    # ---------------------------------------------------------
+    print("\n>>> Analizando evolución genética...")
+    analizador = AnalizadorMetricas()
+    
+    # Asumimos que 'optimizador.historial_aptitud' contiene la lista de mejores costos por generación.
+    # Ajusta el nombre de la propiedad si en tu clase AlgoritmoGenetico es diferente.
+    historial_costos_ga = optimizador.historial_costos
+    
+    # Lanza el gráfico de Matplotlib (Bloqueante hasta cerrar)
+    analizador.graficar_convergencia_genetica(historial_costos_ga)
+
 
     # ---------------------------------------------------------
     # FASE 3: BENCHMARK FINAL (Mapa Optimizado)
@@ -209,10 +243,10 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
 
     for i, orden in enumerate(muestras_test):
         inicio_sa = time.time()
-        resultado = solver_sa_opt.resolver(orden)
+        resultado_op = solver_sa_opt.resolver(orden)
         fin_sa = time.time()
         
-        costos_despues.append(resultado.mejor_costo)
+        costos_despues.append(resultado_op.mejor_costo)
         tiempos_sa_despues.append(fin_sa - inicio_sa)
         print(f"  Orden {i+1}/{n_muestras} procesada.", end="\r")
 
@@ -228,33 +262,35 @@ def ejecutar_pipeline_completo(n_muestras: int = 10) -> None:
     print("\n" + "="*50)
     print("RESUMEN DE RESULTADOS")
     print("="*50)
+    print(f"Metodo de Evaluacion del AG: {config.metodo_evaluacion.upper()}")
     print(f"Tiempo ejecucion Algoritmo Genetico: {tiempo_total_ag:.4f} seg")
-    print(f"Tiempo promedio de ruteo (SA) por orden: {tiempo_promedio_sa:.4f} seg")
     print("-" * 50)
     print(f"Costo promedio ANTES: {promedio_antes:.2f}")
     print(f"Costo promedio DESPUES: {promedio_despues:.2f}")
     print(f"MEJORA PROMEDIO TOTAL: {mejora_porcentual:.2f}%")
     print("="*50)
 
-    # 4. Simulación visual de la última orden procesada para cerrar
-    print("\nLanzando visualizacion del mapa optimizado...")
+    # 4. Renderizado Visual Estático (Análisis Topológico)
+    print("\n>>> Generando Mapa de Calor de Demanda...")
     motor_grafico = RenderizadorDinamico(mapa_simulacion=mapa_optimizado, tamano_celda=45)
    
-    # 4.1 Mostrar Mapa de Calor (Evidencia de Optimización de Layout)
     from collections import Counter
     from itertools import chain
     frecuencias_totales = dict(Counter(chain.from_iterable(todas_las_ordenes)))
     
-    print("\nGenerando Mapa de Calor de Demanda...")
+    # El flujo se pausará aquí hasta que el usuario presione ESPACIO
     motor_grafico.mostrar_mapa_calor(frecuencias_totales)
 
-    print("Lanzando trayectoria del robot en mapa optimizado")
+    # 5. Demostración Dinámica (Validación Operativa)
+    print(">>> Lanzando simulación dinámica del agente logístico...")
     motor_grafico.reproducir_trayectoria(
-        recorrido=resultado.recorrido_completo,
+        recorrido=resultado_op.recorrido_completo,
         ids_orden=muestras_test[-1],
         fps=15
     )
+    
+    print("\nPipeline de optimización finalizado con éxito.")
 
 if __name__ == "__main__":
-    # Puedes cambiar el número de muestras aquí rápidamente
+    # Ejecución del orquestador maestro
     ejecutar_pipeline_completo(n_muestras=20)

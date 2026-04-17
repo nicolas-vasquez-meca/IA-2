@@ -1,0 +1,8 @@
+[project]
+name = "planta"
+version = "0.1.0"
+description = "Simulación de planta con control de temperatura"
+dependencies = [
+    "numpy",
+    "matplotlib",
+]

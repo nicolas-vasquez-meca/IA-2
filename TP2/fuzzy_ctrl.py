@@ -19,8 +19,9 @@ class fuzzy_ctrl:
         temperatura = ctrl.Antecedent(np.arange(-10, 41, 1), 'temperatura')
         humedad = ctrl.Antecedent(np.arange(35,81,1), 'humedad')
         
-        climatizacion = ctrl.Consequent(np.arange(0, 101, 1), 'climatizacion')
-
+        climatizacion = ctrl.Consequent(np.arange(-20, 21, 1), 'climatizacion')
+        climatizacion.defuzzify_method = 'mom'
+        
         # Funciones de pertenencia
         temperatura['PP'] = fuzy.trimf(temperatura.universe, [0, 10, 20])
         temperatura['Z'] = fuzy.trimf(temperatura.universe, [-10, 0, 10])

@@ -20,12 +20,12 @@ class fuzzy_ctrl:
         
         # Variables difusas
         temperatura = ctrl.Antecedent(np.arange(0, 41, 1), 'temperatura')
+        humedad = ctrl.Antecedent(np.arange(-10,11,1), 'humedad')
+        
         Apertura = ctrl.Consequent(np.arange(0, 101, 1), 'velocidad')
 
         # Funciones de pertenencia
-        temperatura['baja'] = fuzy.trimf(temperatura.universe, [0, 0, 20])
-        temperatura['media'] = fuzy.trimf(temperatura.universe, [10, 20, 30])
-        temperatura['alta'] = fuzy.trimf(temperatura.universe, [20, 40, 40])
+        temperatura['pp'] = fuzy.trimf(temperatura.universe, [0, 10, 20])
 
         Apertura['lenta'] = fuzy.trimf(Apertura.universe, [0, 0, 50])
         Apertura['media'] = fuzy.trimf(Apertura.universe, [25, 50, 75])
@@ -41,9 +41,9 @@ class fuzzy_ctrl:
         sistema = ctrl.ControlSystemSimulation(sistema_ctrl)
 
         # Entrada
-        sistema.input['temperatura'] = 28
+        sistema.input['temperatura'] = self.Ve
 
         # Inferencia
         sistema.compute()
 
-        print("Velocidad de salida:", sistema.output['velocidad'])
+        return sistema.output['Salida']

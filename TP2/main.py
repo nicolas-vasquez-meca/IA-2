@@ -1,5 +1,5 @@
-import Planta as planta
-import fuzzy_ctrl as control
+import fuzzy_ctrl
 
 if __name__ == "main":
-    ctrl: control()
+    ctrl = fuzzy_ctrl(25, 35)
+    print(ctrl.apertura())

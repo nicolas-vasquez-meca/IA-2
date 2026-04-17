@@ -113,7 +113,7 @@ def ejecutar_simulacion_grafica() -> None:
     mapa_generado = inicializar_simulacion()
 
     # 2. Inicialización del motor gráfico
-    motor_grafico = RenderizadorPygame(mapa_generado, tamano_celda=40)
+    motor_grafico = RenderizadorPygame(mapa_generado, tamano_celda=80)
     clock = pygame.time.Clock()
 
     # 3. Creación del agente
@@ -213,7 +213,7 @@ def ejecutar_simulacion_grafica_Ej2() -> None:
     mapa_generado = inicializar_simulacion()
 
     # 2. Motor gráfico
-    motor_grafico = RenderizadorPygame(mapa_generado, tamano_celda=40)
+    motor_grafico = RenderizadorPygame(mapa_generado, tamano_celda=80)
     clock = pygame.time.Clock()
 
     # 3. Crear agentes

@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import inspect
 
 # -----------------------------
 # Parámetros del sistema
@@ -35,7 +36,26 @@ def simular(Rv_func):
     for k in range(N):
         t = k * dt
         ve = temperatura_exterior(t)
-        Rv = Rv_func(t)
+        # Soportar dos tipos de funciones pasadas:
+        # - Rv_func(t)  -> función que depende sólo del tiempo
+        # - controlador(v, ve, t) -> controlador que decide Rv en base al estado
+        Rv = None
+        try:
+            sig = inspect.signature(Rv_func)
+            params = len(sig.parameters)
+        except (TypeError, ValueError):
+            params = None
+
+        if params == 1:
+            Rv = Rv_func(t)
+        elif params == 3:
+            Rv = Rv_func(v, ve, t)
+        else:
+            # fallback: intentar ambas formas
+            try:
+                Rv = Rv_func(t)
+            except TypeError:
+                Rv = Rv_func(v, ve, t)
 
         v = planta(v, ve, Rv)
 

@@ -3,48 +3,54 @@ import skfuzzy as fuzy
 from skfuzzy import control as ctrl
 
 class fuzzy_ctrl:
-    def __init__(self, V_obj, Ve):
+    def __init__(self, V_obj, Ve, V):
         self.V_obj = V_obj
         self.Ve = Ve
+        self.V = V
 
     def set_Obj(self, V_obj):
         self.V_obj = V_obj
     
     def set_Ve(self, Ve):
         self.V_obj = Ve
+
+    def set_V(self, V):
+        self.V = V
     
-    def apertura(self):
+    def control(self):
         
         # Variables difusas
-        temperatura = ctrl.Antecedent(np.arange(-10, 41, 1), 'temperatura')
-        humedad = ctrl.Antecedent(np.arange(35,81,1), 'humedad')
-        
-        climatizacion = ctrl.Consequent(np.arange(-20, 21, 1), 'climatizacion')
-        climatizacion.defuzzify_method = 'mom'
+        err = ctrl.Antecedent(np.arange(-20, 20, 1), 'error') # V(t) - V0
+        dT = ctrl.Antecedent(np.arange(-20, 20, 1), 'dt') # Ve - V(t) 
+
+        apertura = ctrl.Consequent(np.arange(0, 101, 1), 'apertura')
+        apertura.defuzzify_method = 'mom'
         
         # Funciones de pertenencia
-        temperatura['PP'] = fuzy.trimf(temperatura.universe, [0, 10, 20])
-        temperatura['Z'] = fuzy.trimf(temperatura.universe, [-10, 0, 10])
+        err['pos'] = fuzy.trimf(err.universe, [-5, 5, 5])
+        err['neg'] = fuzy.trimf(err.universe, [-5, -5, 5])
 
-        humedad['M'] = fuzy.trimf(humedad.universe, [35, 50, 65])
-        humedad['A'] = fuzy.trimf(humedad.universe, [50, 65, 80])
+        dT['pos'] = fuzy.trimf(dT.universe, [-5, 5, 5])
+        dT['neg'] = fuzy.trimf(dT.universe, [-5, -5, 5])
 
-        climatizacion['PP'] = fuzy.trimf(climatizacion.universe, [0, 10, 20])
-        climatizacion['Z'] = fuzy.trimf(climatizacion.universe, [-10, 0, 10])
-
+        apertura['ON'] = fuzy.trimf(apertura.universe, [45, 50, 50])
+        apertura['OFF'] = fuzy.trimf(apertura.universe, [45, 45, 50])
+        
         # Reglas
-        regla1 = ctrl.Rule(temperatura['PP'] & humedad['A'], climatizacion["PP"])
-        regla2 = ctrl.Rule(temperatura['Z'] & humedad['M'], climatizacion["Z"])
+        regla1 = ctrl.Rule(dT['pos'] & err['pos'], apertura["OFF"])
+        regla2 = ctrl.Rule(dT['neg'] & err['neg'], apertura["OFF"])
+        regla3 = ctrl.Rule(dT['pos'] & err['neg'], apertura["ON"])
+        regla4 = ctrl.Rule(dT['neg'] & err['pos'], apertura["ON"])
 
         # Sistema
-        sistema_ctrl = ctrl.ControlSystem([regla1, regla2])
+        sistema_ctrl = ctrl.ControlSystem([regla1, regla2, regla3, regla4])
         sistema = ctrl.ControlSystemSimulation(sistema_ctrl)
 
         # Entrada
-        sistema.input['temperatura'] = 7
-        sistema.input['humedad'] = 60
+        sistema.input['err'] = (self.V - self.V_obj)
+        sistema.input['dT'] = (self.Ve - self.V)
 
         # Inferencia
         sistema.compute()
 
-        return sistema.output['climatizacion']
+        return sistema.output['apertura']

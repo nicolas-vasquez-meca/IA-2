@@ -67,6 +67,50 @@ def simular(planta, controlador, t_total):
 
     return t_hist, v_hist, ve_hist, Rv_hist
 
+def simular_con_prediccion(planta, controlador, t_total, T_pred):
+
+    N = int(t_total / planta.dt)
+
+    v = 20  # inicial
+
+    t_hist = []
+    v_hist = []
+    ve_hist = []
+    Rv_hist = []
+
+    for k in range(N):
+        t = k * planta.dt
+
+        ve = planta.temperatura_exterior(t)
+
+        # 🔥 NUEVO: temperatura futura
+        ve_pred = planta.temperatura_exterior(t + T_pred)
+
+        # actualizar controlador
+        controlador.set_V(v)
+        controlador.set_Ve(ve)
+        controlador.set_Ve_pred(ve_pred)
+        controlador.set_t(t)
+
+        # controlador → apertura
+        apertura = controlador.control()
+
+        # saturar
+        apertura = max(0, min(apertura, 100))
+
+        # planta
+        v = planta.paso(v, apertura, ve)
+
+        # guardar Rv real (solo para ver)
+        Rv = planta.apertura_a_Rv(apertura)
+
+        # guardar historial
+        t_hist.append(t / 3600)
+        v_hist.append(v)
+        ve_hist.append(ve)
+        Rv_hist.append(Rv)
+
+    return t_hist, v_hist, ve_hist, Rv_hist
 
 # -----------------------------
 # MAIN

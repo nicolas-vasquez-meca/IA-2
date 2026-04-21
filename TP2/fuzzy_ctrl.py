@@ -17,7 +17,7 @@ class fuzzy_ctrl:
     def set_V(self, V):
         self.V = V
     
-    def control(self):
+    def control(self) -> float: 
         
         # Variables difusas
         err = ctrl.Antecedent(np.arange(-20, 20, 1), 'error') # V(t) - V0

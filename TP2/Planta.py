@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from fuzzy_control import fuzzy_ctrl   # tu clase
+from fuzzy_ctrl import fuzzy_ctrl   # tu clase
 
 # -----------------------------
 # Clase Planta
@@ -16,7 +16,8 @@ class Planta:
     def temperatura_exterior(self, t):
         return 20 + 10 * np.sin(2 * np.pi * t / (24 * 3600))
 
-    def paso(self, v, Rv, ve):
+    def paso(self, v, apertura, ve):
+        Rv = self.apertura_a_Rv(apertura)
         return v + self.dt * (ve - v) / (self.C * (self.R + Rv))
 
     def apertura_a_Rv(self, apertura):

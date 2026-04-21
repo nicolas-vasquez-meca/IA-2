@@ -1,50 +1,33 @@
-from Planta import simular, Rv_max
+from Planta import Planta
 import matplotlib.pyplot as plt
-from TP2.main_ejemplo import FuzzyCtrl
-
-# -----------------------------
-# Controlador (ejemplo) (aqui ya le toca a los de controlador)
-# -----------------------------
-ctrl_difuso = FuzzyCtrl(Rv_max)
-
-# -----------------------------
-# MAIN
-# -----------------------------
-def main():
-
-    # Ejecutar simulación
-    t, v, ve = simular(ctrl_difuso)
-
-    # Graficar
-    plt.figure()
-    plt.plot(t, ve, label="Exterior", linestyle="dashed")
-    plt.plot(t, v, label="Interior (controlado)")
-    plt.xlabel("Tiempo (horas)")
-    plt.ylabel("Temperatura (°C)")
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-
-if __name__ == "__main__":
-    main()
-"""""
 from fuzzy_ctrl import fuzzy_ctrl
-from Planta import temperatura_exterior
-from Planta import planta
-from Planta import simular
-import numpy as np
+from pronostico_tiempo import PronosticoTiempo
 
 
 if __name__ == "__main__":
-    ctrl = fuzzy_ctrl()
+
     n_puntos = 48
+    pt = PronosticoTiempo()
+    temperaturas : list[float] = pt.obtener_temperaturas_dia(23, 4, n_puntos)
+
+    R = 1728
+    Rv_min = 0
+    Rv_max = 15552
+    C = 1
+    dt_minutos = 60*24/n_puntos
+
+    planta = Planta(R, Rv_max, C, dt_minutos)
+
+    ctrl = fuzzy_ctrl()
+    ctrl.set_Obj = 25
+    V = 15
     apertura = 0
 
-    for i in range(n_puntos):
-        
 
-        ctrl.set_Ve(       )
-        ctrl.set_V(       )
-        apertura = ctrl.control()/
-"""""
+    for i in range(n_puntos):
+
+        planta.paso(V, apertura, temperaturas[i])
+        ctrl.set_Ve()
+        ctrl.set_V()
+        apertura = ctrl.control()
+

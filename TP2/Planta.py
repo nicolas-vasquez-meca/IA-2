@@ -1,97 +1,86 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import inspect
 
 # -----------------------------
-# Parámetros del sistema
+# Parámetros
 # -----------------------------
-R = 1728                     # resistencia base
-Rv_max = 15552              # ventana totalmente cerrada
-dt = 60                     # paso de tiempo (1 minuto)
-t_total = 48 * 3600         # 48 horas
+dt = 60
+t_total = 48 * 3600
 N = int(t_total / dt)
 
+R = 1728
+Rv_max = 15552
+C = 1
+
 # -----------------------------
-# Temperatura exterior (ejemplo)
+# Temperatura exterior
 # -----------------------------
 def temperatura_exterior(t):
-    # ciclo diario (en segundos)
     return 20 + 10 * np.sin(2 * np.pi * t / (24 * 3600))
 
 # -----------------------------
-# Modelo de la planta
+# Planta (UN PASO)
 # -----------------------------
-def planta(v, ve, Rv):
-    return v + dt * (ve - v) / (R + Rv)
+def planta(v, ve, R, Rv, C):
+    return v + dt * (ve - v) / (C * (R + Rv))
+
+# -----------------------------
+# Controlador (ejemplo)
+# -----------------------------
+def controlador(v, ve, t):
+    v0 = 25
+    Z = (v - v0) * (ve - v)
+    return Rv_max if Z >= 0 else 0
 
 # -----------------------------
 # Simulación
 # -----------------------------
-def simular(Rv_func):
-    v = 20  # temperatura inicial
-    historial_v = []
-    historial_ve = []
-    tiempo = []
+def simular():
+
+    v = 20  # inicial
+
+    t_hist = []
+    v_hist = []
+    ve_hist = []
+    Rv_hist = []
 
     for k in range(N):
         t = k * dt
+
         ve = temperatura_exterior(t)
-        # Soportar dos tipos de funciones pasadas:
-        # - Rv_func(t)  -> función que depende sólo del tiempo
-        # - controlador(v, ve, t) -> controlador que decide Rv en base al estado
-        Rv = None
-        try:
-            sig = inspect.signature(Rv_func)
-            params = len(sig.parameters)
-        except (TypeError, ValueError):
-            params = None
 
-        if params == 1:
-            Rv = Rv_func(t)
-        elif params == 3:
-            Rv = Rv_func(v, ve, t)
-        else:
-            # fallback: intentar ambas formas
-            try:
-                Rv = Rv_func(t)
-            except TypeError:
-                Rv = Rv_func(v, ve, t)
+        # controlador usa estado actual
+        Rv = controlador(v, ve, t)
 
-        v = planta(v, ve, Rv)
+        # limitar
+        Rv = max(0, min(Rv, Rv_max))
 
-        historial_v.append(v)
-        historial_ve.append(ve)
-        tiempo.append(t / 3600)  # en horas
+        # planta calcula siguiente
+        v = planta(v, ve, R, Rv, C)
 
-    return tiempo, historial_v, historial_ve
+        # guardar
+        t_hist.append(t / 3600)
+        v_hist.append(v)
+        ve_hist.append(ve)
+        Rv_hist.append(Rv)
+
+    return t_hist, v_hist, ve_hist, Rv_hist
 
 # -----------------------------
-# Casos de prueba
+# MAIN
 # -----------------------------
+t, v, ve, Rv = simular()
 
-# Ventana siempre abierta
-def Rv_abierta(t):
-    return 0
-
-# Ventana siempre cerrada
-def Rv_cerrada(t):
-    return Rv_max
-
-# -----------------------------
-# Ejecutar simulaciones
-# -----------------------------
-t, v_abierta, ve = simular(Rv_abierta)
-_, v_cerrada, _ = simular(Rv_cerrada)
-
-# -----------------------------
-# Gráficos
-# -----------------------------
 plt.figure()
-plt.plot(t, ve, label="Exterior", linestyle="dashed")
-plt.plot(t, v_abierta, label="Interior (ventana abierta)")
-plt.plot(t, v_cerrada, label="Interior (ventana cerrada)")
-plt.xlabel("Tiempo (horas)")
-plt.ylabel("Temperatura (°C)")
+plt.plot(t, ve, '--', label='Exterior')
+plt.plot(t, v, label='Interior')
+plt.axhline(25, linestyle='--', label='Confort')
 plt.legend()
 plt.grid()
+
+plt.figure()
+plt.plot(t, Rv, label='Rv')
+plt.legend()
+plt.grid()
+
 plt.show()

@@ -21,7 +21,7 @@ class fuzzy_ctrl:
         
         # Variables difusas
         err = ctrl.Antecedent(np.arange(-20, 20, 1), 'error') # V(t) - V0
-        dT = ctrl.Antecedent(np.arange(-20, 20, 1), 'dt') # Ve - V(t) 
+        dT = ctrl.Antecedent(np.arange(-20, 20, 1), 'dT') # Ve - V(t) 
 
         apertura = ctrl.Consequent(np.arange(0, 101, 1), 'apertura')
         apertura.defuzzify_method = 'mom'
@@ -47,7 +47,7 @@ class fuzzy_ctrl:
         sistema = ctrl.ControlSystemSimulation(sistema_ctrl)
 
         # Entrada
-        sistema.input['err'] = (self.V - self.V_obj)
+        sistema.input['error'] = (self.V - self.V_obj)
         sistema.input['dT'] = (self.Ve - self.V)
 
         # Inferencia

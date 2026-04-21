@@ -16,17 +16,13 @@ class Planta:
     def temperatura_exterior(self, t):
         return 20 + 10 * np.sin(2 * np.pi * t / (24 * 3600))
 
-    def paso(self, v, apertura, ve):
-        Rv = self.apertura_a_Rv(apertura)
-        return v + self.dt * (ve - v) / (self.C * (self.R + Rv))
-
     def apertura_a_Rv(self, apertura):
-        """
-        apertura: 0 → ventana abierta
-                  100 → ventana cerrada
-        """
         return self.Rv_max * (apertura / 100)
 
+    def paso(self, v, apertura, ve):
+        # conversión interna
+        Rv = self.apertura_a_Rv(apertura)
+        return v + self.dt * (ve - v) / (self.C * (self.R + Rv))
 
 # -----------------------------
 # Simulación
@@ -35,7 +31,7 @@ def simular(planta, controlador, t_total):
 
     N = int(t_total / planta.dt)
 
-    v = 20  # condición inicial
+    v = 20
 
     t_hist = []
     v_hist = []
@@ -47,19 +43,19 @@ def simular(planta, controlador, t_total):
 
         ve = planta.temperatura_exterior(t)
 
-        # CONTROLADOR → devuelve % apertura
+        # controlador → % apertura
         apertura = controlador.control()
 
-        # convertir a Rv
+        # saturar apertura (no Rv!)
+        apertura = max(0, min(apertura, 100))
+
+        # planta usa apertura directamente
+        v = planta.paso(v, apertura, ve)
+
+        # guardar Rv real (solo para graficar)
         Rv = planta.apertura_a_Rv(apertura)
 
-        # saturación
-        Rv = max(0, min(Rv, planta.Rv_max))
-
-        # PLANTA
-        v = planta.paso(v, Rv, ve)
-
-        # actualizar controlador con nuevo estado
+        # actualizar controlador
         controlador.set_V(v)
         controlador.set_Ve(ve)
 

@@ -1,43 +1,40 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from fuzzy_control import fuzzy_ctrl   # tu clase
 
 # -----------------------------
-# Parámetros
+# Clase Planta
 # -----------------------------
-dt = 60
-t_total = 48 * 3600
-N = int(t_total / dt)
+class Planta:
 
-R = 1728
-Rv_max = 15552
-C = 1
+    def __init__(self, R, Rv_max, C, dt):
+        self.R = R
+        self.Rv_max = Rv_max
+        self.C = C
+        self.dt = dt
 
-# -----------------------------
-# Temperatura exterior
-# -----------------------------
-def temperatura_exterior(t):
-    return 20 + 10 * np.sin(2 * np.pi * t / (24 * 3600))
+    def temperatura_exterior(self, t):
+        return 20 + 10 * np.sin(2 * np.pi * t / (24 * 3600))
 
-# -----------------------------
-# Planta (UN PASO)
-# -----------------------------
-def planta(v, ve, R, Rv, C):
-    return v + dt * (ve - v) / (C * (R + Rv))
+    def paso(self, v, Rv, ve):
+        return v + self.dt * (ve - v) / (self.C * (self.R + Rv))
 
-# -----------------------------
-# Controlador (ejemplo)
-# -----------------------------
-def controlador(v, ve, t):
-    v0 = 25
-    Z = (v - v0) * (ve - v)
-    return Rv_max if Z >= 0 else 0
+    def apertura_a_Rv(self, apertura):
+        """
+        apertura: 0 → ventana abierta
+                  100 → ventana cerrada
+        """
+        return self.Rv_max * (apertura / 100)
+
 
 # -----------------------------
 # Simulación
 # -----------------------------
-def simular():
+def simular(planta, controlador, t_total):
 
-    v = 20  # inicial
+    N = int(t_total / planta.dt)
+
+    v = 20  # condición inicial
 
     t_hist = []
     v_hist = []
@@ -45,18 +42,25 @@ def simular():
     Rv_hist = []
 
     for k in range(N):
-        t = k * dt
+        t = k * planta.dt
 
-        ve = temperatura_exterior(t)
+        ve = planta.temperatura_exterior(t)
 
-        # controlador usa estado actual
-        Rv = controlador(v, ve, t)
+        # CONTROLADOR → devuelve % apertura
+        apertura = controlador.control()
 
-        # limitar
-        Rv = max(0, min(Rv, Rv_max))
+        # convertir a Rv
+        Rv = planta.apertura_a_Rv(apertura)
 
-        # planta calcula siguiente
-        v = planta(v, ve, R, Rv, C)
+        # saturación
+        Rv = max(0, min(Rv, planta.Rv_max))
+
+        # PLANTA
+        v = planta.paso(v, Rv, ve)
+
+        # actualizar controlador con nuevo estado
+        controlador.set_V(v)
+        controlador.set_Ve(ve)
 
         # guardar
         t_hist.append(t / 3600)
@@ -66,21 +70,41 @@ def simular():
 
     return t_hist, v_hist, ve_hist, Rv_hist
 
+
 # -----------------------------
 # MAIN
 # -----------------------------
-t, v, ve, Rv = simular()
+if __name__ == "__main__":
 
-plt.figure()
-plt.plot(t, ve, '--', label='Exterior')
-plt.plot(t, v, label='Interior')
-plt.axhline(25, linestyle='--', label='Confort')
-plt.legend()
-plt.grid()
+    # Parámetros
+    R = 1728
+    Rv_max = 15552
+    C = 1
+    dt = 60
+    t_total = 48 * 3600
 
-plt.figure()
-plt.plot(t, Rv, label='Rv')
-plt.legend()
-plt.grid()
+    # Crear planta
+    planta = Planta(R, Rv_max, C, dt)
 
-plt.show()
+    # Crear controlador difuso
+    ctrl = fuzzy_ctrl(V_obj=25, Ve=20, V=20)
+
+    # Simular
+    t, v, ve, Rv = simular(planta, ctrl, t_total)
+
+    # -----------------------------
+    # Gráficos
+    # -----------------------------
+    plt.figure()
+    plt.plot(t, ve, '--', label='Exterior')
+    plt.plot(t, v, label='Interior')
+    plt.axhline(25, linestyle='--', label='Confort')
+    plt.legend()
+    plt.grid()
+
+    plt.figure()
+    plt.plot(t, Rv, label='Rv')
+    plt.legend()
+    plt.grid()
+
+    plt.show()

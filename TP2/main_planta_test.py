@@ -67,7 +67,7 @@ def Rv_random_toggle(t):
 
 def Rv_step_change(t):
     # cerrada la primera mitad de la simulación, abierta la segunda
-    total_seconds = 48 * 3600
+    total_seconds = 24 * 3600
     return planta.Rv_max if t < (total_seconds / 2) else 0
 
 CASES = {
@@ -84,7 +84,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 def run_case(name, func):
     controlador = ControladorPorFun(func, planta)
-    t, v_hist, ve, Rv_hist = simular(planta, controlador, 48 * 3600)
+    t, v_hist, ve, Rv_hist = simular(planta, controlador, 24 * 3600)
     v = np.array(v_hist)
     summary = {
         'final': float(v[-1]),

@@ -18,32 +18,57 @@ plt.show = lambda *a, **k: None
 mod = runpy.run_path(PLANTA_PATH)
 
 simular = mod.get('simular')
-Rv_max = mod.get('Rv_max', None)
+Planta = mod.get('Planta')
 
 if simular is None:
     raise RuntimeError('No se encontró la función simular en Planta.py')
 
+if Planta is None:
+    raise RuntimeError('No se encontró la clase Planta en Planta.py')
+
+# Instancia de planta para pruebas
+planta = Planta(R=1728, Rv_max=15552, C=1, dt=60)
+
+class ControladorPorFun:
+    def __init__(self, func, planta):
+        self.func = func
+        self.planta = planta
+        self.step = 0
+
+    def control(self):
+        t = self.step * self.planta.dt
+        self.step += 1
+        Rv = self.func(t)
+        apertura = 0 if self.planta.Rv_max == 0 else 100 * Rv / self.planta.Rv_max
+        return max(0, min(apertura, 100))
+
+    def set_V(self, v):
+        self.v = v
+
+    def set_Ve(self, ve):
+        self.ve = ve
+
 # Definición de casos:
 def Rv_half_open(t):
-    return (Rv_max / 2) if Rv_max is not None else 0
+    return planta.Rv_max / 2
 
 def Rv_sinusoidal(t):
     # ventana que varía sinusoidalmente (más abierta de día)
-    return (Rv_max * 0.5 * (1 + np.sin(2 * np.pi * t / (24 * 3600)))) if Rv_max is not None else 0
+    return planta.Rv_max * 0.5 * (1 + np.sin(2 * np.pi * t / (24 * 3600)))
 
 def Rv_periodic_dayopen(t):
     hour = (t / 3600) % 24
-    return 0 if 8 <= hour < 20 else (Rv_max if Rv_max is not None else 0)
+    return 0 if 8 <= hour < 20 else planta.Rv_max
 
 # Random toggles: crear RNG una vez para que cambie en el tiempo
 rng = np.random.RandomState(seed=0)
 def Rv_random_toggle(t):
-    return 0 if rng.rand() > 0.5 else (Rv_max if Rv_max is not None else 0)
+    return 0 if rng.rand() > 0.5 else planta.Rv_max
 
 def Rv_step_change(t):
     # cerrada la primera mitad de la simulación, abierta la segunda
-    total_seconds = mod.get('t_total', 48 * 3600)
-    return (Rv_max if t < (total_seconds / 2) else 0) if Rv_max is not None else 0
+    total_seconds = 48 * 3600
+    return planta.Rv_max if t < (total_seconds / 2) else 0
 
 CASES = {
     'abierta': lambda t: 0,
@@ -58,7 +83,8 @@ OUT_DIR = os.path.join(HERE)
 os.makedirs(OUT_DIR, exist_ok=True)
 
 def run_case(name, func):
-    t, v_hist, ve = simular(func)
+    controlador = ControladorPorFun(func, planta)
+    t, v_hist, ve, Rv_hist = simular(planta, controlador, 48 * 3600)
     v = np.array(v_hist)
     summary = {
         'final': float(v[-1]),

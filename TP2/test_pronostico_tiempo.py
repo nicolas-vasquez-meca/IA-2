@@ -8,9 +8,9 @@ def ejecutar_pruebas():
 
     # 1. Instanciamos el modelo con parámetros de un clima de alta amplitud térmica
     modelo = PronosticoTiempo(
-        temp_media=16.5,       # Temperatura media anual
-        amp_anual=10.0,        # Diferencia entre la media y el pico del verano
-        amp_diaria=12.0,       # Fuerte caída de temperatura en la noche
+        temp_media=20,       # Temperatura media anual
+        amp_anual=12.0,        # Diferencia entre la media y el pico del verano
+        amp_diaria=7.0,       # Fuerte caída de temperatura en la noche
         dia_pico_verano=15,    # 15 de Enero
         hora_pico_diario=16.0  # El calor máximo se registra a las 16:00 hs
     )

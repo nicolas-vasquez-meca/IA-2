@@ -9,7 +9,7 @@ class PronosticoTiempo:
     def __init__(self,
                  temp_media: float = 17.0,
                  amp_anual: float = 8.0,
-                 amp_diaria: float = 7.0,
+                 amp_diaria: float = 4.0,
                  dia_pico_verano: int = 15,
                  hora_pico_diario: float = 15.0):
         """

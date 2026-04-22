@@ -20,9 +20,9 @@ class fuzzy_ctrl:
         self._configurar_membresias()
         
         # Consecuente con rango completo
-        self.apertura['OFF'] = fuzy.trimf(self.apertura.universe, [0, 0, 50])
-        self.apertura['MID'] = fuzy.trimf(self.apertura.universe, [0, 50, 100])
-        self.apertura['ON'] = fuzy.trimf(self.apertura.universe, [50, 100, 100])
+        self.apertura['OFF'] = fuzy.trapmf(self.apertura.universe, [0, 0, 0, 50])
+        self.apertura['MID'] = fuzy.trimf(self.apertura.universe, [40, 50, 60])
+        self.apertura['ON'] = fuzy.trapmf(self.apertura.universe, [50, 100, 100, 100])
         
         # Reglas de Inferencia
         regla1 = ctrl.Rule(self.dT['pos'] & self.err['pos'], self.apertura["OFF"])
@@ -48,9 +48,9 @@ class fuzzy_ctrl:
         # Selector de Estrategia para la variable Error
         if self.estrategia == "base":
             # Transiciones lineales estándar con centro agudo
-            self.err['neg'] = fuzy.trapmf(self.err.universe, [-20, -20, -2, 0])
-            self.err['Z']   = fuzy.trimf(self.err.universe, [-2, 0, 2])
-            self.err['pos'] = fuzy.trapmf(self.err.universe, [0, 2, 20, 20])
+            self.err['neg'] = fuzy.trapmf(self.err.universe, [-20, -20, -1, 0])
+            self.err['Z']   = fuzy.trimf(self.err.universe, [-1.5, 0, 1.5])
+            self.err['pos'] = fuzy.trapmf(self.err.universe, [0, 1, 20, 20])
 
         elif self.estrategia == "gaussiana":
             # Superficie de control ultra-suave
@@ -61,11 +61,30 @@ class fuzzy_ctrl:
         elif self.estrategia == "banda_muerta":
             # Tolerancia al error: El centro es un trapecio con una meseta
             self.err['neg'] = fuzy.trapmf(self.err.universe, [-20, -20, -1.5, -0.5])
-            self.err['Z']   = fuzy.trapmf(self.err.universe, [-1.5, -0.5, 0.5, 1.5])
+            self.err['Z']   = fuzy.trapmf(self.err.universe, [-2, -1, 1, 2])
             self.err['pos'] = fuzy.trapmf(self.err.universe, [0.5, 1.5, 20, 20])
             
         else:
             raise ValueError(f"Estrategia '{self.estrategia}' no válida. Use: 'base', 'gaussiana' o 'banda_muerta'.")
+
+    def graficar_membresias(self):
+        """
+        Genera gráficos de los universos de discurso y sus funciones de pertenencia.
+        """
+        import matplotlib.pyplot as plt
+        
+        # skfuzzy crea figuras automáticamente con el método view()
+        self.err.view()
+        plt.title(f"Variable: Error (Estrategia: {self.estrategia.capitalize()})")
+        
+        self.dT.view()
+        plt.title("Variable: Diferencial de Temperatura (dT)")
+        
+        self.apertura.view()
+        plt.title("Variable: Apertura de Ventana")
+        
+        # Mostramos todas las figuras generadas
+        plt.show()
 
     def set_Obj(self, V_obj):
         self.V_obj = V_obj

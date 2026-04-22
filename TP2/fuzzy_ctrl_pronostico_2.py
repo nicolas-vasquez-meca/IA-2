@@ -22,9 +22,9 @@ class fuzzy_ctrl:
             self._inicializar_controlador_base()
 
     def _configurar_consecuente(self):
-        self.apertura['OFF'] = fuzy.trapmf(self.apertura.universe, [0, 0, 10, 35])
-        self.apertura['MID'] = fuzy.trimf(self.apertura.universe, [35, 50, 65])
-        self.apertura['ON'] = fuzy.trapmf(self.apertura.universe, [65, 90, 100, 100])
+        self.apertura['OFF'] = fuzy.trapmf(self.apertura.universe, [0, 0, 0, 50])
+        self.apertura['MID'] = fuzy.trimf(self.apertura.universe, [40, 50, 60])
+        self.apertura['ON'] = fuzy.trapmf(self.apertura.universe, [50, 100, 100, 100])
 
     def _inicializar_controlador_base(self):
         self.err = ctrl.Antecedent(np.arange(-20, 20, 1), 'error')
@@ -85,15 +85,17 @@ class fuzzy_ctrl:
             )
 
     def _configurar_membresias_pronostico(self):
-        self.z['neg'] = fuzy.trapmf(self.z.universe, [-200, -200, -2, 0])
+        self.z['neg'] = fuzy.trapmf(self.z.universe, [-200, -200, -4, 0])
         self.z['Z'] = fuzy.trimf(self.z.universe, [-3, 0, 3])
-        self.z['pos'] = fuzy.trapmf(self.z.universe, [0, 2, 200, 200])
+        self.z['pos'] = fuzy.trapmf(self.z.universe, [0, 4, 200, 200])
 
-        dia_mf = fuzy.trapmf(self.hora.universe, [7.5, 8.0, 20.0, 20.5])
-        noche_izq = fuzy.trapmf(self.hora.universe, [0.0, 0.0, 7.0, 8.0])
-        noche_der = fuzy.trapmf(self.hora.universe, [20.0, 21.0, 24.0, 24.0])
+        dia_mf = fuzy.trapmf(self.hora.universe, [6, 8.0, 19, 21])
+        noche = []
+        for punto in dia_mf:
+            noche.append(1-punto)
+
         self.hora['dia'] = dia_mf
-        self.hora['noche'] = np.maximum(noche_izq, noche_der)
+        self.hora['noche'] = noche
 
         temp_borde = self.V_obj
         self.t_pred['baja'] = fuzy.trapmf(self.t_pred.universe, [-10.0, -10.0, temp_borde - 1.0, temp_borde + 0.5])

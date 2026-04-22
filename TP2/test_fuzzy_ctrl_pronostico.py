@@ -37,7 +37,7 @@ if __name__ == "__main__":
         temperaturas_predichas[i] = temperaturas[idx]
 
     V_obj = 25
-    V_actual_inicial = 22
+    V_actual_inicial = 30
 
     print("=== CONTROL DIFUSO CON PRONÓSTICO ===")
     print(f"Horizonte de predicción: {horizonte_pred_horas:.1f} h")
@@ -76,8 +76,8 @@ if __name__ == "__main__":
     error_array = np.array(T_controlada) - V_obj
     rms_error = np.sqrt(np.mean(np.square(error_array)))
 
-    mask_confort = (tiempo_horas >= 8.0) & (tiempo_horas <= 20.0)
-    J = np.trapezoid(error_array[mask_confort], tiempo_horas[mask_confort]) / (20.0 - 8.0)
+    mask_confort = (tiempo_horas >= 8) & (tiempo_horas <= 20)
+    J = np.trapezoid(error_array[mask_confort], tiempo_horas[mask_confort]) / (20 - 8)
 
     esfuerzo = np.sum(np.abs(np.diff(aperturas)))
 

@@ -24,10 +24,12 @@ if __name__ == "__main__":
     planta = Planta(R, Rv_max, C, dt_minutos)
 
     V_obj = 25
-    V_actual = 15
+    V_actual = 22
 
     ctrl = fuzzy_ctrl(V_obj, temperaturas[0],V_actual)
     apertura = 0
+    aperturas = []
+    aperturas.append(0)
 
     T_controlada = []
     T_controlada.append(V_actual)
@@ -37,9 +39,14 @@ if __name__ == "__main__":
         ctrl.set_Ve(temperaturas[i])
         ctrl.set_V(V_actual)
         apertura = ctrl.control()
+        aperturas.append(apertura)
+
         V_sig = planta.paso(V_actual, apertura, temperaturas[i])
-        T_controlada.append(V_actual)
         V_actual = V_sig
+        T_controlada.append(V_sig)
+
+    rms = np.sqrt(np.mean(np.square(T_controlada)))
+    print(rms - V_obj)
 
     plt.figure()
     plt.plot(tiempo, temperaturas, '*', label='T_Exterior')
@@ -48,4 +55,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid()
 
+    plt.figure()
+    plt.plot(tiempo, aperturas)
+    plt.grid()
     plt.show()

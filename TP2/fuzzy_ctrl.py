@@ -12,7 +12,7 @@ class fuzzy_ctrl:
         self.V_obj = V_obj
     
     def set_Ve(self, Ve):
-        self.V_obj = Ve
+        self.Ve = Ve
 
     def set_V(self, V):
         self.V = V
@@ -24,17 +24,16 @@ class fuzzy_ctrl:
         dT = ctrl.Antecedent(np.arange(-20, 20, 1), 'dT') # Ve - V(t) 
 
         apertura = ctrl.Consequent(np.arange(0, 101, 1), 'apertura')
-        apertura.defuzzify_method = 'mom'
-        
-        # Funciones de pertenencia
-        err['pos'] = fuzy.trimf(err.universe, [-5, 5, 5])
-        err['neg'] = fuzy.trimf(err.universe, [-5, -5, 5])
+        apertura.defuzzify_method = 'centroid'
 
-        dT['pos'] = fuzy.trimf(dT.universe, [-5, 5, 5])
-        dT['neg'] = fuzy.trimf(dT.universe, [-5, -5, 5])
+        err['neg']  = fuzy.trapmf(err.universe, [-20, -20, -5, 3])
+        err['pos']  = fuzy.trapmf(err.universe, [-3, 5, 20, 20])
 
-        apertura['ON'] = fuzy.trimf(apertura.universe, [45, 50, 50])
-        apertura['OFF'] = fuzy.trimf(apertura.universe, [45, 45, 50])
+        dT['neg'] = fuzy.trapmf(dT.universe, [-20, -20, -5, 3])
+        dT['pos'] = fuzy.trapmf(dT.universe, [-3, 5, 20, 20])
+
+        apertura['ON'] = fuzy.trapmf(apertura.universe, [45, 50, 50, 100])
+        apertura['OFF'] = fuzy.trapmf(apertura.universe, [0, 45, 45, 50])
         
         # Reglas
         regla1 = ctrl.Rule(dT['pos'] & err['pos'], apertura["OFF"])
@@ -47,10 +46,17 @@ class fuzzy_ctrl:
         sistema = ctrl.ControlSystemSimulation(sistema_ctrl)
 
         # Entrada
-        sistema.input['error'] = (self.V - self.V_obj)
-        sistema.input['dT'] = (self.Ve - self.V)
+        Err = (self.V - self.V_obj)
+        Delta_T = (self.Ve - self.V)
+        sistema.input['error'] = Err
+        sistema.input['dT'] = Delta_T
 
         # Inferencia
         sistema.compute()
-
+        """
+        if (Err*Delta_T >= 0):
+            return 100
+        else:
+            return 0
+        #"""
         return sistema.output['apertura']

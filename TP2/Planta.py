@@ -17,7 +17,7 @@ class Planta:
         return 20 + 10 * np.sin(2 * np.pi * t / (24 * 3600))
 
     def apertura_a_Rv(self, apertura):
-        return self.Rv_max * (apertura / 100)
+        return self.Rv_max * (1 - (apertura / 100.0))
 
     def paso(self, v, apertura, ve):
         # conversión interna

@@ -55,8 +55,8 @@ class fuzzy_ctrl:
         sistema.compute()
         """
         if (Err*Delta_T >= 0):
-            return 100
-        else:
             return 0
-        #"""
+        else:
+            return 100
+        """
         return sistema.output['apertura']

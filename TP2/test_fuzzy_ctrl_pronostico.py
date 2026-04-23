@@ -18,7 +18,7 @@ def graficar_membresia_manual(variable_difusa, ax, titulo):
 if __name__ == "__main__":
     # --- 1. Configuración Inicial ---
     n_puntos = 48
-    horizonte_pred_horas = 4.0
+    horizonte_pred_horas = 5.0
 
     pt = PronosticoTiempo()
     temperaturas = np.array(pt.obtener_temperaturas_dia(1, 2, n_puntos))
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         temperaturas_predichas[i] = temperaturas[idx]
 
     V_obj = 25
-    V_actual_inicial = 30
+    V_actual_inicial = 22
 
     print("=== CONTROL DIFUSO CON PRONÓSTICO ===")
     print(f"Horizonte de predicción: {horizonte_pred_horas:.1f} h")

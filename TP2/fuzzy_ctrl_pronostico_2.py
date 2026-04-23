@@ -110,6 +110,7 @@ class fuzzy_ctrl:
 
         temp_borde = self.V_obj
         self.t_pred['baja'] = fuzy.trapmf(self.t_pred.universe, [-10.0, -10.0, temp_borde - 1.0, temp_borde + 0.5])
+        self.t_pred['normal'] = fuzy.trimf(self.t_pred.universe, [22, 25, 28])
         self.t_pred['alta'] = fuzy.trapmf(self.t_pred.universe, [temp_borde - 0.5, temp_borde + 1.0, 45.0, 45.0])
 
     def graficar_membresias(self):

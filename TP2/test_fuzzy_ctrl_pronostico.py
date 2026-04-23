@@ -21,7 +21,9 @@ if __name__ == "__main__":
     horizonte_pred_horas = 5.0
 
     pt = PronosticoTiempo()
-    temperaturas = np.array(pt.obtener_temperaturas_dia(1, 2, n_puntos))
+    dia_simulacion = 1
+    mes_simulacion = 2
+    temperaturas = np.array(pt.obtener_temperaturas_dia(dia_simulacion, mes_simulacion, n_puntos))
 
     R = 1728
     Rv_max = 15552
@@ -31,10 +33,29 @@ if __name__ == "__main__":
     tiempo_horas = np.array([i * dt_segundos / 3600 for i in range(n_puntos)])
 
     pasos_pred = max(1, int(round(horizonte_pred_horas / (dt_segundos / 3600))))
+
+    # Temperaturas del día actual
+    temperaturas = np.array(pt.obtener_temperaturas_dia(dia_simulacion, mes_simulacion, n_puntos))
+
+    # Temperaturas del día siguiente
+    from datetime import date, timedelta
+
+    fecha_actual = date(2026, mes_simulacion, dia_simulacion)   # poné el año que quieras
+    fecha_siguiente = fecha_actual + timedelta(days=1)
+
+    temperaturas_sig = np.array(
+        pt.obtener_temperaturas_dia(fecha_siguiente.day, fecha_siguiente.month, n_puntos)
+    )
+
+    # Vector extendido: hoy + mañana
+    temperaturas_ext = np.concatenate([temperaturas, temperaturas_sig])
+
+    # Predicción a horizonte fijo
     temperaturas_predichas = np.empty_like(temperaturas)
+
     for i in range(n_puntos):
-        idx = min(i + pasos_pred, n_puntos - 1)
-        temperaturas_predichas[i] = temperaturas[idx]
+        idx = i + pasos_pred
+        temperaturas_predichas[i] = temperaturas_ext[idx]
 
     V_obj = 25
     V_actual_inicial = 22

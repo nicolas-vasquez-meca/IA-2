@@ -59,6 +59,12 @@ class fuzzy_ctrl:
             ctrl.Rule(self.hora['noche'] & self.t_pred['alta'] & self.z['Z'],   self.apertura['ON']),
             ctrl.Rule(self.hora['noche'] & self.t_pred['alta'] & self.z['neg'], self.apertura['ON']),
 
+            # NUEVOOOOO
+            # ===== NOCHE + pronóstico NEUTRO: control normal =====
+            ctrl.Rule(self.hora['noche'] & self.t_pred['normal'] & self.z['pos'], self.apertura['OFF']),
+            ctrl.Rule(self.hora['noche'] & self.t_pred['normal'] & self.z['Z'],   self.apertura['MID']),
+            ctrl.Rule(self.hora['noche'] & self.t_pred['normal'] & self.z['neg'], self.apertura['ON']),
+
             # ===== NOCHE + pronóstico BAJO: sesgo a cerrar =====
             ctrl.Rule(self.hora['noche'] & self.t_pred['baja'] & self.z['pos'], self.apertura['OFF']),
             ctrl.Rule(self.hora['noche'] & self.t_pred['baja'] & self.z['Z'],   self.apertura['OFF']),

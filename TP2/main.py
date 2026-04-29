@@ -24,7 +24,6 @@ if __name__ == "__main__":
 
     n_puntos = 48       # Puntos por dia
     dt_segundos = 3600 * 24 / n_puntos  # dt en segundos
-    tiempo_horas = np.array([i * dt_segundos / 3600 for i in range(n_puntos)])  # Tiempo en horas
 
     planta = Planta(R, Rv_max, C, dt_segundos)
     
@@ -36,51 +35,67 @@ if __name__ == "__main__":
     # ---- Condiciones de Simulacion ----
     mes_simulacion = 3              # 1 = Enero (verano), 7 = Julio (invierno)
     dia_inicial_simulacion = 15     # Dia que empezamos
-    dias_simulacion = 7             # Simulamos una semana
+    dias_simulacion = 7           # Simulamos una semana
     
-    # Contiene temperaturas del primer dia (condiciones iniciales)
-    temperaturas_exteriores = np.array(pt.obtener_temperaturas_dia(dia_inicial_simulacion, mes_simulacion, n_puntos))
+    # Generar vector completo de temperaturas para toda la semana
+    temperaturas_exteriores_totales = []
+    for dia in range(dia_inicial_simulacion, dia_inicial_simulacion + dias_simulacion):
+        temps_dia = pt.obtener_temperaturas_dia(dia, mes_simulacion, n_puntos)
+        temperaturas_exteriores_totales.extend(temps_dia)
+        
+    temperaturas_exteriores_totales = np.array(temperaturas_exteriores_totales)
+    total_puntos = len(temperaturas_exteriores_totales) # Serán 48 * 7 = 336 puntos
+    
+    # ]El vector de tiempo ahora abarca toda la semana (168 horas)
+    tiempo_dias = np.array([i * dt_segundos / (3600 * 24) for i in range(total_puntos)])
 
-    ctrl = fuzzy_ctrl(V_obj, temperaturas_exteriores[0], V_actual_inicial, estrategia="base")
-
+    # Estrategia puede ser:
+    # 1. base
+    # 2. banda_muerta
+    # 3. gaussiana
+    ctrl = fuzzy_ctrl(V_obj, temperaturas_exteriores_totales[0], V_actual_inicial, estrategia="gaussiana")
+    
     # ==== SIMULACIÓN (CONTROL DINÁMICO) ====
     print("Iniciando simulación del sistema térmico...")
 
     # Vectores de almacenamiento para el historial de simulación
     V_actual = V_actual_inicial # Temperatura actual
-    T_controlada = [V_actual]   # Vector con temperaturas controladas
-    aperturas = [0]             # Vector con aperturas
+    T_controlada = []           # Vector con temperaturas controladas
+    aperturas = []              # Vector con aperturas
 
-    for dia in range(dias_simulacion - 1):
-        # Cambiar vector de temperaturas exteriores
-        temperaturas_exteriores = np.array(pt.obtener_temperaturas_dia(dia, mes_simulacion, n_puntos))
+    for i in range(total_puntos):
+        Ve = temperaturas_exteriores_totales[i]
+        
+        # Lectura de sensores (Actualización del controlador)
+        ctrl.set_Ve(Ve)
+        ctrl.set_V(V_actual)
+        
+        # Cálculo de la acción de control (Inferencia Difusa)
+        apertura = ctrl.control()
+        
+        # Guardamos el estado actual ANTES de que evolucione la planta
+        aperturas.append(apertura)
+        T_controlada.append(V_actual)
 
-        for i in range(n_puntos - 1):
-            # Lectura de sensores (Actualización del controlador)
-            ctrl.set_Ve(temperaturas_exteriores[i])
-            ctrl.set_V(V_actual)
-            
-            # Cálculo de la acción de control (Inferencia Difusa)
-            apertura = ctrl.control()
-            aperturas.append(apertura)
+        # Dinámica de la planta (Aplicar apertura y calcular siguiente estado)
+        V_sig = planta.paso(V_actual, apertura, Ve)
+        
+        # Actualización de estado
+        V_actual = V_sig
 
-            # Dinámica de la planta (Aplicar apertura y calcular siguiente estado)
-            V_sig = planta.paso(V_actual, apertura, temperaturas_exteriores[i])
-            
-            # Actualización de estado
-            V_actual = V_sig
-            T_controlada.append(V_sig)
+    T_controlada = np.array(T_controlada)
+    aperturas = np.array(aperturas)
+
 
     # ==========================================
     # 4. CÁLCULO DE MÉTRICAS DE RENDIMIENTO (KPIs)
     # ==========================================
-    
-    # Error RMS: Mide la desviación global respecto a la temperatura de confort
-    error_array = np.array(T_controlada) - V_obj
+    error_array = T_controlada - V_obj
     rms_error = np.sqrt(np.mean(np.square(error_array)))
     
     print("\n=== RESULTADOS DE LA SIMULACIÓN ===")
-    print(f"Estrategia utilizada : Base")
+    print(f"Estrategia utilizada : {ctrl.estrategia}")
+    print(f"Días simulados       : {dias_simulacion}")
     print(f"Error RMS            : {rms_error:.3f} °C")
     print("===================================\n")
 
@@ -96,7 +111,6 @@ if __name__ == "__main__":
     ax_dt  = fig.add_subplot(gs[0, 1])
     ax_ap  = fig.add_subplot(gs[0, 2])
 
-    # Se extraen los vectores manualmente para evitar el bug de figuras múltiples de skfuzzy
     def graficar_membresia_manual(variable_difusa, ax, titulo):
         for label, term in variable_difusa.terms.items():
             ax.plot(variable_difusa.universe, term.mf, label=label, linewidth=2)
@@ -110,6 +124,7 @@ if __name__ == "__main__":
     graficar_membresia_manual(ctrl.apertura, ax_ap, "Consecuente: Apertura (%)")
 
     # --- 5.2 Fila Inferior: Simulación Temporal ---
+    # --- 5.2 Fila Inferior: Simulación Temporal ---
     ax_sim = fig.add_subplot(gs[1, :]) 
     ax_sim_ap = ax_sim.twinx()         
 
@@ -118,25 +133,34 @@ if __name__ == "__main__":
     c_tobj = "#2ca02c" # Verde (Setpoint)
     c_aper = "#ff7f0e" # Naranja (Apertura)
 
-    ax_sim.plot(tiempo_horas, temperaturas_exteriores, '*', color=c_text, alpha=0.6, label='T Exterior')
-    ax_sim.plot(tiempo_horas, T_controlada, linewidth=2.5, color=c_tint, label='T Interior controlada')
+    # Reemplazamos tiempo_horas por tiempo_dias
+    ax_sim.plot(tiempo_dias, temperaturas_exteriores_totales, '*', color=c_text, alpha=0.6, label='T Exterior')
+    ax_sim.plot(tiempo_dias, T_controlada, linewidth=2.5, color=c_tint, label='T Interior controlada')
     ax_sim.axhline(V_obj, color=c_tobj, linestyle='--', linewidth=2, label='Setpoint (Confort 25°C)')
     
-    ax_sim_ap.fill_between(tiempo_horas, 0, aperturas, color=c_aper, alpha=0.15, label='Apertura de Ventana')
-    ax_sim_ap.plot(tiempo_horas, aperturas, color=c_aper, linewidth=1.5, alpha=0.8)
+    ax_sim_ap.fill_between(tiempo_dias, 0, aperturas, color=c_aper, alpha=0.15, label='Apertura de Ventana')
+    ax_sim_ap.plot(tiempo_dias, aperturas, color=c_aper, linewidth=1.5, alpha=0.8)
     
     # --- ESCALADO DINÁMICO DE EJES Y ---
-    # Buscamos el valor más frío y el más caliente de toda la simulación (incluyendo el objetivo)
-    temp_min = min(np.min(temperaturas_exteriores), np.min(T_controlada), V_obj)
-    temp_max = max(np.max(temperaturas_exteriores), np.max(T_controlada), V_obj)
+    temp_min = min(np.min(temperaturas_exteriores_totales), np.min(T_controlada), V_obj)
+    temp_max = max(np.max(temperaturas_exteriores_totales), np.max(T_controlada), V_obj)
     
-    # Agregamos 2 grados de margen arriba y abajo para que las curvas no toquen los bordes del gráfico
     ax_sim.set_ylim(temp_min - 2, temp_max + 2)      
     ax_sim_ap.set_ylim(0, 105)   
     
     ax_sim.set_ylabel("Temperatura (°C)", fontsize=12, fontweight='bold')
     ax_sim_ap.set_ylabel("Nivel de Apertura (%)", fontsize=12, color=c_aper, fontweight='bold')
-    ax_sim.set_xlabel("Hora del Día", fontsize=12, fontweight='bold')
+    
+    # --- CONFIGURACIÓN DEL EJE X (DÍAS) ---
+    ax_sim.set_xlabel("Tiempo (Días de simulación)", fontsize=12, fontweight='bold')
+    
+    # Forzamos a que el eje X ponga una marca exactamente en cada día entero (0, 1, 2... 7)
+    ax_sim.set_xticks(np.arange(0, dias_simulacion + 1, 1))
+    
+    # Añadimos líneas divisorias verticales por cada día para mayor claridad
+    for d in range(1, dias_simulacion):
+        ax_sim.axvline(x=d, color='gray', linestyle=':', alpha=0.5, linewidth=1.5)
+
     ax_sim.grid(True, linestyle='--', alpha=0.7)
     
     lines_1, labels_1 = ax_sim.get_legend_handles_labels()

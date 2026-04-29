@@ -8,74 +8,73 @@ from pronostico_tiempo import PronosticoTiempo
 
 
 if __name__ == "__main__":
-
-    # ==== CONFIGURACION DE PARAMETROS DE SIMULACION ====
-    dia_simulacion = 15
-    mes_simulacion = 3     # 1 = Enero (verano), 7 = Julio (invierno)
-    
-    nombres_meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
-                     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-    fecha_str = f"{dia_simulacion} de {nombres_meses[mes_simulacion-1]}"
-
-    # Discretización del tiempo: 48 puntos en 24 horas
-    n_puntos = 48
-    
-    # Generación de la perturbación (Temperatura Exterior)
+    # ==== CONFIGURACION DE SIMULACION ==== 
+    # ---- Pronosticador ----
     pt = PronosticoTiempo(temp_media = 20.0,
                           amp_anual = 12.0,
                           amp_diaria = 7.0,
                           dia_pico_verano = 15,
                           hora_pico_diario = 16.0)
-    temperaturas = np.array(pt.obtener_temperaturas_dia(dia_simulacion, mes_simulacion, n_puntos))
-
-    # Parámetros térmicos de la planta (Modelo RC Equivalente)
+    
+    # ---- Planta ----
     R = 1728           # Resistencia térmica mínima (Ventana 100% abierta)
     Rv_min = 0         # R adicional mínima
     Rv_max = 15552     # R adicional máxima (Ventana 0% abierta / sellada)
     C = 1              # Capacitancia térmica de la habitación
-    
-    # Convertimos el paso discreto de 24h a segundos.
-    dt_segundos = 3600 * 24 / n_puntos
-    
-    # Vector de tiempo escalar en HORAS (exclusivo para graficación)
-    tiempo_horas = np.array([i * dt_segundos / 3600 for i in range(n_puntos)])
 
-    # Condiciones iniciales del sistema
+    n_puntos = 48       # Puntos por dia
+    dt_segundos = 3600 * 24 / n_puntos  # dt en segundos
+    tiempo_horas = np.array([i * dt_segundos / 3600 for i in range(n_puntos)])  # Tiempo en horas
+
+    planta = Planta(R, Rv_max, C, dt_segundos)
+    
+    # ---- Controlador Difuso ----
+    # Condiciones del sistema
     V_obj = 25              # Setpoint: Temperatura de confort (°C)
     V_actual_inicial = 22   # Condición inicial de la habitación (°C)
 
-    # ==== INICIALIZACIÓN DE OBJETOS ====
-    planta = Planta(R, Rv_max, C, dt_segundos)
-    ctrl = fuzzy_ctrl(V_obj, temperaturas[0], V_actual_inicial, estrategia="base")
+    # ---- Condiciones de Simulacion ----
+    mes_simulacion = 3              # 1 = Enero (verano), 7 = Julio (invierno)
+    dia_inicial_simulacion = 15     # Dia que empezamos
+    dias_simulacion = 7             # Simulamos una semana
+    
+    # Contiene temperaturas del primer dia (condiciones iniciales)
+    temperaturas_exteriores = np.array(pt.obtener_temperaturas_dia(dia_inicial_simulacion, mes_simulacion, n_puntos))
+
+    ctrl = fuzzy_ctrl(V_obj, temperaturas_exteriores[0], V_actual_inicial, estrategia="base")
+
+    # ==== SIMULACIÓN (CONTROL DINÁMICO) ====
+    print("Iniciando simulación del sistema térmico...")
 
     # Vectores de almacenamiento para el historial de simulación
-    V_actual = V_actual_inicial
-    T_controlada = [V_actual]
-    aperturas = [0]
+    V_actual = V_actual_inicial # Temperatura actual
+    T_controlada = [V_actual]   # Vector con temperaturas controladas
+    aperturas = [0]             # Vector con aperturas
 
+    for dia in range(dias_simulacion - 1):
+        # Cambiar vector de temperaturas exteriores
+        temperaturas_exteriores = np.array(pt.obtener_temperaturas_dia(dia, mes_simulacion, n_puntos))
 
-    # ==== BUCLE DE SIMULACIÓN (CONTROL DINÁMICO) ====
-    print("Iniciando simulación del sistema térmico...")
-    
-    for i in range(n_puntos - 1):
-        # Lectura de sensores (Actualización del controlador)
-        ctrl.set_Ve(temperaturas[i])
-        ctrl.set_V(V_actual)
-        
-        # Cálculo de la acción de control (Inferencia Difusa)
-        apertura = ctrl.control()
-        aperturas.append(apertura)
+        for i in range(n_puntos - 1):
+            # Lectura de sensores (Actualización del controlador)
+            ctrl.set_Ve(temperaturas_exteriores[i])
+            ctrl.set_V(V_actual)
+            
+            # Cálculo de la acción de control (Inferencia Difusa)
+            apertura = ctrl.control()
+            aperturas.append(apertura)
 
-        # Dinámica de la planta (Aplicar apertura y calcular siguiente estado)
-        V_sig = planta.paso(V_actual, apertura, temperaturas[i])
-        
-        # Actualización de estado
-        V_actual = V_sig
-        T_controlada.append(V_sig)
+            # Dinámica de la planta (Aplicar apertura y calcular siguiente estado)
+            V_sig = planta.paso(V_actual, apertura, temperaturas_exteriores[i])
+            
+            # Actualización de estado
+            V_actual = V_sig
+            T_controlada.append(V_sig)
 
     # ==========================================
     # 4. CÁLCULO DE MÉTRICAS DE RENDIMIENTO (KPIs)
     # ==========================================
+    
     # Error RMS: Mide la desviación global respecto a la temperatura de confort
     error_array = np.array(T_controlada) - V_obj
     rms_error = np.sqrt(np.mean(np.square(error_array)))
@@ -89,7 +88,6 @@ if __name__ == "__main__":
     # 5. VISUALIZACIÓN DE RESULTADOS (DASHBOARD)
     # ==========================================
     fig = plt.figure(figsize=(14, 10))
-    fig.suptitle(f"Control Difuso: {fecha_str} | Error RMS: {rms_error:.2f} °C", fontsize=16, fontweight='bold')
 
     gs = GridSpec(2, 3, height_ratios=[1, 1.5], figure=fig)
 
@@ -120,7 +118,7 @@ if __name__ == "__main__":
     c_tobj = "#2ca02c" # Verde (Setpoint)
     c_aper = "#ff7f0e" # Naranja (Apertura)
 
-    ax_sim.plot(tiempo_horas, temperaturas, '*', color=c_text, alpha=0.6, label='T Exterior')
+    ax_sim.plot(tiempo_horas, temperaturas_exteriores, '*', color=c_text, alpha=0.6, label='T Exterior')
     ax_sim.plot(tiempo_horas, T_controlada, linewidth=2.5, color=c_tint, label='T Interior controlada')
     ax_sim.axhline(V_obj, color=c_tobj, linestyle='--', linewidth=2, label='Setpoint (Confort 25°C)')
     
@@ -129,8 +127,8 @@ if __name__ == "__main__":
     
     # --- ESCALADO DINÁMICO DE EJES Y ---
     # Buscamos el valor más frío y el más caliente de toda la simulación (incluyendo el objetivo)
-    temp_min = min(np.min(temperaturas), np.min(T_controlada), V_obj)
-    temp_max = max(np.max(temperaturas), np.max(T_controlada), V_obj)
+    temp_min = min(np.min(temperaturas_exteriores), np.min(T_controlada), V_obj)
+    temp_max = max(np.max(temperaturas_exteriores), np.max(T_controlada), V_obj)
     
     # Agregamos 2 grados de margen arriba y abajo para que las curvas no toquen los bordes del gráfico
     ax_sim.set_ylim(temp_min - 2, temp_max + 2)      

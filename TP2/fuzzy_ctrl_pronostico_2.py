@@ -49,26 +49,67 @@ class fuzzy_ctrl:
         self._configurar_membresias_pronostico()
 
         reglas = [
-            # ===== DIA: control normal =====
-            ctrl.Rule(self.hora['dia'] & self.z['pos'], self.apertura['OFF']),
-            ctrl.Rule(self.hora['dia'] & self.z['Z'],   self.apertura['MID']),
-            ctrl.Rule(self.hora['dia'] & self.z['neg'], self.apertura['ON']),
+            # ============================================================
+            # T_pred ALTA
+            # ============================================================
 
-            # ===== NOCHE + pronóstico ALTO: sesgo a abrir =====
-            ctrl.Rule(self.hora['noche'] & self.t_pred['alta'] & self.z['pos'], self.apertura['MID']),
-            ctrl.Rule(self.hora['noche'] & self.t_pred['alta'] & self.z['Z'],   self.apertura['ON']),
-            ctrl.Rule(self.hora['noche'] & self.t_pred['alta'] & self.z['neg'], self.apertura['ON']),
+            # ----- ALTA + DIA -----
+            # z neg -> M
+            # z Z   -> C
+            # z pos -> C
+            ctrl.Rule(self.t_pred['alta'] & self.hora['dia'] & self.z['neg'], self.apertura['MID']),
+            ctrl.Rule(self.t_pred['alta'] & self.hora['dia'] & self.z['Z'],   self.apertura['OFF']),
+            ctrl.Rule(self.t_pred['alta'] & self.hora['dia'] & self.z['pos'], self.apertura['OFF']),
 
-            # NUEVOOOOO
-            # ===== NOCHE + pronóstico NEUTRO: control normal =====
-            ctrl.Rule(self.hora['noche'] & self.t_pred['normal'] & self.z['pos'], self.apertura['OFF']),
-            ctrl.Rule(self.hora['noche'] & self.t_pred['normal'] & self.z['Z'],   self.apertura['MID']),
-            ctrl.Rule(self.hora['noche'] & self.t_pred['normal'] & self.z['neg'], self.apertura['ON']),
+            # ----- ALTA + NOCHE -----
+            # z neg -> A
+            # z Z   -> A
+            # z pos -> M
+            ctrl.Rule(self.t_pred['alta'] & self.hora['noche'] & self.z['neg'], self.apertura['ON']),
+            ctrl.Rule(self.t_pred['alta'] & self.hora['noche'] & self.z['Z'],   self.apertura['ON']),
+            ctrl.Rule(self.t_pred['alta'] & self.hora['noche'] & self.z['pos'], self.apertura['MID']),
 
-            # ===== NOCHE + pronóstico BAJO: sesgo a cerrar =====
-            ctrl.Rule(self.hora['noche'] & self.t_pred['baja'] & self.z['pos'], self.apertura['OFF']),
-            ctrl.Rule(self.hora['noche'] & self.t_pred['baja'] & self.z['Z'],   self.apertura['OFF']),
-            ctrl.Rule(self.hora['noche'] & self.t_pred['baja'] & self.z['neg'], self.apertura['MID']),
+
+            # ============================================================
+            # T_pred NORMAL
+            # ============================================================
+
+            # ----- NORMAL + DIA -----
+            # z neg -> A
+            # z Z   -> M
+            # z pos -> C
+            ctrl.Rule(self.t_pred['normal'] & self.hora['dia'] & self.z['neg'], self.apertura['ON']),
+            ctrl.Rule(self.t_pred['normal'] & self.hora['dia'] & self.z['Z'],   self.apertura['MID']),
+            ctrl.Rule(self.t_pred['normal'] & self.hora['dia'] & self.z['pos'], self.apertura['OFF']),
+
+            # ----- NORMAL + NOCHE -----
+            # z neg -> A
+            # z Z   -> M
+            # z pos -> C
+            ctrl.Rule(self.t_pred['normal'] & self.hora['noche'] & self.z['neg'], self.apertura['ON']),
+            ctrl.Rule(self.t_pred['normal'] & self.hora['noche'] & self.z['Z'],   self.apertura['MID']),
+            ctrl.Rule(self.t_pred['normal'] & self.hora['noche'] & self.z['pos'], self.apertura['OFF']),
+
+
+            # ============================================================
+            # T_pred BAJA
+            # ============================================================
+
+            # ----- BAJA + DIA -----
+            # z neg -> A
+            # z Z   -> A
+            # z pos -> M
+            ctrl.Rule(self.t_pred['baja'] & self.hora['dia'] & self.z['neg'], self.apertura['ON']),
+            ctrl.Rule(self.t_pred['baja'] & self.hora['dia'] & self.z['Z'],   self.apertura['ON']),
+            ctrl.Rule(self.t_pred['baja'] & self.hora['dia'] & self.z['pos'], self.apertura['MID']),
+
+            # ----- BAJA + NOCHE -----
+            # z neg -> M
+            # z Z   -> C
+            # z pos -> C
+            ctrl.Rule(self.t_pred['baja'] & self.hora['noche'] & self.z['neg'], self.apertura['MID']),
+            ctrl.Rule(self.t_pred['baja'] & self.hora['noche'] & self.z['Z'],   self.apertura['OFF']),
+            ctrl.Rule(self.t_pred['baja'] & self.hora['noche'] & self.z['pos'], self.apertura['OFF']),
         ]
 
         sistema_ctrl = ctrl.ControlSystem(reglas)

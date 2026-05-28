@@ -1,4 +1,12 @@
 import math
+
+import sys
+import os
+directorio_actual = os.path.dirname(os.path.abspath(__file__))
+directorio_padre = os.path.dirname(directorio_actual)
+sys.path.append(directorio_padre)
+
+
 from datetime import date
 from typing import List
 
@@ -86,7 +94,3 @@ class PronosticoTiempo:
             temperaturas.append(round(temp, 2))
 
         return temperaturas
-
-
-
-

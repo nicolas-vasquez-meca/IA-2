@@ -26,7 +26,7 @@ def graficar_membresia_manual(variable_difusa, ax, titulo):
 if __name__ == "__main__":
     # --- Configuración Inicial ---
     n_puntos = 48
-    horizonte_pred_horas = 12.0
+    horizonte_pred_horas = 5.0
 
     # ---- Pronosticador ----
     pt = PronosticoTiempo(temp_media=20.0,

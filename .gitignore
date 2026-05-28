@@ -1,4 +1,5 @@
 venv/
+librerias/
 .vscode
 __pycache__/
 *.py[cod]

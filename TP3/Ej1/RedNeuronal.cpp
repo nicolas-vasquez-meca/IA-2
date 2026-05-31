@@ -27,7 +27,7 @@ std::vector<double> RedNeuronal::forward(std::vector<double> x) {
 
 void RedNeuronal::entrenar(std::vector<double> x, std::vector<double> yt, double lr){
 
-    if (!capas.empty()) throw std::runtime_error("faltan agragar capas");
+    if (capas.empty()) throw std::runtime_error("faltan agragar capas");
 
     // Guardamos todas las activaciones (salidas), empezando desde las entrada inicial
     // como si fuera la salida de una capa neuronal 0

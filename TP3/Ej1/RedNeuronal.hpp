@@ -12,7 +12,7 @@ class RedNeuronal {
 
     public:
         RedNeuronal(CapaNeuronal& capa_inicial){
-            this->capas.push_back(capa_entrada);
+            this->capas.push_back(capa_inicial);
         }
         
         void agregarCapa( CapaNeuronal& capa);

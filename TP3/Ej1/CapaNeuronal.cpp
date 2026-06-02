@@ -11,18 +11,22 @@ size_t CapaNeuronal::get_size_entradas() const{
 }
 
 double CapaNeuronal::f(double z) const{
-
     if(this->tipo_de_funcion == "sigmoide"){
         return 1.0 / (1.0 + std::exp(-z));
+    } else if (this->tipo_de_funcion == "lineal") {
+        return z; // Activación lineal (identidad)
     }
+    return 0.0;
 }
 
 double CapaNeuronal::df(double z) const{
-
     if(this->tipo_de_funcion == "sigmoide"){
         double salida = f(z);
         return salida * (1 - salida);
+    } else if (this->tipo_de_funcion == "lineal") {
+        return 1.0; // La derivada de z respecto a z es 1
     }
+    return 0.0;
 }
 
 std::vector<double> CapaNeuronal::forward(const std::vector<double>& x) const {

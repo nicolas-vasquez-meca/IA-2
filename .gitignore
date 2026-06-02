@@ -4,3 +4,11 @@ librerias/
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Archivos grandes
+*.h5
+*.keras
+*.tflite
+*.pkl
+*.pth
+*.bin

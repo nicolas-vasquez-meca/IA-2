@@ -231,8 +231,8 @@ class Dinosaur(NeuralNetwork):
 
         self.prediction_buffer.append(predictions)
 
-        # Mantener solo últimas 4 predicciones
-        if len(self.prediction_buffer) > 4:
+        # Mantener solo última 1 predicción (máxima reactividad)
+        if len(self.prediction_buffer) > 1:
             self.prediction_buffer.pop(0)
 
         avg_predictions = np.mean(
@@ -245,12 +245,44 @@ class Dinosaur(NeuralNetwork):
         confidence = avg_predictions[predicted_class_index]
 
         # ======================================================================================
-        # FILTRAR PREDICCIONES DUDOSAS
+        # FILTRAR PREDICCIONES DUDOSAS CON THRESHOLD ADAPTATIVO
         # ======================================================================================
 
+        # Detectar distancia del obstáculo analizando píxeles oscuros a la derecha
+        obstacle_close = False
+        dark_pixels = 0
+        try:
+            # Analizar la imagen capturada para ver si hay obstáculo cerca
+            img_data = np.array(img_to_array(img) / 255.0).squeeze()
+            # Buscar píxeles oscuros (obstáculos) en la zona crítica (últimas 150 columnas)
+            right_zone = img_data[:, -150:]  # ampliar a 150 columnas
+            dark_pixels = np.sum(right_zone < 0.5)  # umbral más alto (píxeles < 0.5)
+            obstacle_close = dark_pixels > 110  # criterio más permisivo
+        except Exception as e:
+            obstacle_close = False
+            dark_pixels = 0
+
         # Si la red no está segura -> seguir corriendo
-        # umbral incrementado en +0.1 según solicitud
-        if confidence < 0.70:
+        # Threshold adaptativo: más permisivo con JUMP si el obstáculo está cerca
+        if CLASSES[predicted_class_index] == "JUMP" and obstacle_close:
+            # Usar dark_pixels para estimar tamaño del obstáculo
+            if dark_pixels < 140:
+                # Obstáculo pequeño: threshold bajo
+                threshold = 0.50
+            elif dark_pixels < 300:
+                # Obstáculo mediano: threshold medio
+                threshold = 0.60
+            else:
+                # Obstáculo grande: threshold alto
+                threshold = 0.70
+        elif CLASSES[predicted_class_index] == "JUMP":
+            # JUMP normal: threshold medio
+            threshold = 0.70
+        else:
+            # DUCK o RIGHT: threshold más exigente
+            threshold = 0.70
+
+        if confidence < threshold:
             action = "RIGHT"
         else:
             action = CLASSES[predicted_class_index]
@@ -271,16 +303,17 @@ class Dinosaur(NeuralNetwork):
         # COOLDOWN PARA EVITAR FLIP-FLOP (por acción)
         # ======================================================================================
 
-        if self.cooldown > 0:
+        # JUMP rompe el cooldown
+        if action == "JUMP":
+            self.cooldown = 0
+            self.previous_action = action
+        elif self.cooldown > 0:
             self.cooldown -= 1
             action = self.previous_action
-
         elif action != self.previous_action:
             # actualizar previous_action antes de fijar cooldown para ejecutar la acción ya mismo
             self.previous_action = action
-            if action == "JUMP":
-                self.cooldown = 6
-            elif action == "DUCK":
+            if action == "DUCK":
                 self.cooldown = 4
             else:
                 self.cooldown = 2
@@ -289,7 +322,10 @@ class Dinosaur(NeuralNetwork):
         # DEBUG OPCIONAL
         # ======================================================================================
 
-        print(f"[PRED] probs={np.round(avg_predictions,3).tolist()} idx={predicted_class_index} conf={confidence:.3f} action={action} prev={self.previous_action} cooldown={self.cooldown}")
+        if CLASSES[predicted_class_index] == "JUMP":
+            print(f"[JUMP] conf={confidence:.3f} dark_px={dark_pixels:.0f} obstacle_close={obstacle_close} threshold={threshold:.2f} action={action}")
+        else:
+            print(f"[{CLASSES[predicted_class_index]}] conf={confidence:.3f} threshold={threshold:.2f} action={action}")
 
         # ======================================================================================
         # EJECUTAR ACCIÓN
